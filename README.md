@@ -11,7 +11,7 @@ The project includes:
 
 GitHub Pages URL:
 
-`https://n-herwede.github.io/Cosmos-Explorer/`
+https://n-herwede.github.io/Cosmos-Explorer/
 
 ## Vignette
 
