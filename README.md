@@ -6,12 +6,12 @@ The project includes:
 - A landing experience with a curated planet showcase
 - A real-time solar system simulation
 - An enhanced viewer with controls and shader playground options
-
+  
 ## Live Site
 
 GitHub Pages URL:
 
-`https://<your-github-username>.github.io/<your-repository-name>/`
+`https://n-herwede.github.io/Cosmos-Explorer/`
 
 ## Vignette
 
