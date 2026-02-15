@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Procedural Mars - Noah Herwede</title>
+    <style>
+        body, html { margin: 0; padding: 0; overflow: hidden; background: transparent; }
+        canvas { display: block; width: 100vw; height: 100vh; }
+    </style>
+</head>
+<body>
+    <canvas id="glcanvas"></canvas>
+
+    <script id="vs" type="x-shader/x-vertex">
+        attribute vec2 position;
+        void main() {
+            gl_Position = vec4(position, 0.0, 1.0);
+        }
+    </script>
+
+    <script id="fs" type="x-shader/x-fragment">
+        precision highp float;
+
+        uniform vec3 iResolution;
+        uniform float iTime;
+
+        // =======================================================================================//
+        // PROCEDURAL MARS (Clear Atmosphere Edition) - Noah Herwede
+        // Features: High Relief, Dark Spots, & Transparent Fog
+        // =======================================================================================//
+
+        // --- PLANET SETTINGS ---
+        #define PLANET_POSITION vec3(0, 0, 0)
+        #define PLANET_RADIUS 2.0
+        #define NOISE_STRENGTH 0.14
+        #define ROTATION_SPEED -0.1
+        #define PLANET_ROTATION rotateY(iTime * ROTATION_SPEED)
+
+        // --- PALETTE (Deep Red-Brown) ---
+        #define COLOR_DEEP_SHADOW vec3(0.02, 0.005, 0.005)
+        #define COLOR_BASALT      vec3(0.18, 0.04, 0.02)
+        #define COLOR_RUST        vec3(0.50, 0.10, 0.02)
+        #define COLOR_DUST        vec3(0.75, 0.30, 0.10)
+        #define COLOR_ICE         vec3(0.90, 0.85, 0.80)
+        #define CLOUD_COLOR       vec3(0.80, 0.50, 0.30)
+        #define ATMOSPHERE_COLOR  vec3(0.70, 0.20, 0.05)
+
+        // --- LIGHTING ---
+        #define SUN_DIR normalize(vec3(0.8, 0.4, 0.5))
+        #define SUN_COLOR vec3(0.8, 0.25, 0.15) * 3.5
+        #define AMBIENT_LIGHT vec3(0.015, 0.005, 0.005)
+
+        // --- RAY TRACING ---
+        #define MAX_BOUNCES 1
+        #define EPSILON 1e-3
+        #define INFINITY 1e10
+        #define CAMERA_POSITION vec3(0., 0., 5.5)
+
+        struct Ray { vec3 origin; vec3 direction; };
+        struct Material { vec3 color; float diffuse; float specular; };
+        struct Hit { float len; vec3 normal; Material material; };
+        struct Sphere { vec3 position; float radius; };
+
+        Sphere planet = Sphere(PLANET_POSITION, PLANET_RADIUS);
+
+        float sphIntersect(in Ray ray, in Sphere sphere) {
+            vec3 oc = ray.origin - sphere.position;
+            float b = dot(oc, ray.direction);
+            float c = dot(oc, oc) - sphere.radius * sphere.radius;
+            float h = b * b - c;
+            if(h < 0.0) return -1.;
+            return -b - sqrt(h);
+        }
+
+        mat3 rotateY(float angle) {
+            float c = cos(angle); float s = sin(angle);
+            return mat3(vec3(c, 0, s), vec3(0, 1, 0), vec3(-s, 0, c));
+        }
+
+        float hash(vec3 p) {
+            p  = fract( p * 0.3183099 + .1 );
+            p *= 17.0;
+            return fract( p.x * p.y * p.z * (p.x + p.y + p.z) );
+        }
+
+        float noise( in vec3 x ) {
+            vec3 i = floor(x);
+            vec3 f = fract(x);
+            f = f * f * (3.0 - 2.0 * f);
+            return mix(mix(mix( hash(i + vec3(0,0,0)), hash(i + vec3(1,0,0)),f.x),
+                           mix( hash(i + vec3(0,1,0)), hash(i + vec3(1,1,0)),f.x),f.y),
+                       mix(mix( hash(i + vec3(0,0,1)), hash(i + vec3(1,0,1)),f.x),
+                           mix( hash(i + vec3(0,1,1)), hash(i + vec3(1,1,1)),f.x),f.y),f.z);
+        }
+
+        float ridgedNoise(vec3 p) {
+            float n = noise(p);
+            return pow(1.0 - abs(n), 2.0);
+        }
+
+        float fbm(vec3 p, int octaves) {
+            float amp = 0.5;
+            float freq = 2.0;
+            float total = 0.0;
+            float norm = 0.0;
+            for(int i = 0; i < 10; ++i) {
+                if (i >= octaves) break;
+                total += noise(p * freq) * amp;
+                norm += amp;
+                amp *= 0.5;
+                freq *= 2.0;
+            }
+            return total / norm;
+        }
+
+        float fbmRidged(vec3 p, int octaves) {
+            float amp = 0.5;
+            float freq = 1.6;
+            float total = 0.0;
+            for(int i = 0; i < 10; ++i) {
+                if (i >= octaves) break;
+                total += ridgedNoise(p * freq) * amp;
+                amp *= 0.5;
+                freq *= 2.0;
+            }
+            return total;
+        }
+
+        float domainWarpingFBM(vec3 p) {
+            vec3 offset = vec3(fbm(p, 4), fbm(p + vec3(43.2, 23.1, 0.0), 4), 0.0);
+            return fbm(p + offset * 0.8, 2);
+        }
+
+        float remap(float v, float inMin, float inMax, float outMin, float outMax) {
+            return outMin + (v - inMin) * (outMax - outMin) / (inMax - inMin);
+        }
+
+        float getAlbedoMap(vec3 p) {
+            float n = fbm(p * 0.8, 4);
+            return smoothstep(0.35, 0.65, n);
+        }
+
+        float planetNoise(vec3 p) {
+            vec3 warp = p + vec3(fbm(p, 3)) * 0.2;
+            float albedo = getAlbedoMap(warp);
+
+            float h = fbmRidged(warp * 1.5, 6);
+            h = mix(h * 0.2, h, albedo);
+            h += fbm(warp * 5.0, 3) * 0.02;
+
+            return h * NOISE_STRENGTH;
+        }
+
+        vec3 planetNormal(vec3 p) {
+            float eps = 0.015;
+            vec3 center = PLANET_POSITION;
+            vec3 p_rot = (p - center) * PLANET_ROTATION + center;
+            float h_center = planetNoise(p_rot);
+            float h_x = planetNoise((p - vec3(eps, 0, 0) - center) * PLANET_ROTATION + center);
+            float h_y = planetNoise((p - vec3(0, eps, 0) - center) * PLANET_ROTATION + center);
+            float h_z = planetNoise((p - vec3(0, 0, eps) - center) * PLANET_ROTATION + center);
+            vec3 grad = vec3(h_center - h_x, h_center - h_y, h_center - h_z) * 20.0;
+            vec3 n_geom = normalize(p - center);
+            return normalize(n_geom + grad);
+        }
+
+        vec3 baseColor(vec3 n) {
+            vec3 p = n * PLANET_RADIUS;
+            vec3 rotatedCoord = (p - PLANET_POSITION) * PLANET_ROTATION + PLANET_POSITION;
+
+            float h = planetNoise(rotatedCoord);
+            float albedo = getAlbedoMap(rotatedCoord);
+
+            vec3 color = COLOR_BASALT;
+            vec3 highlandColor = mix(COLOR_RUST, COLOR_DUST, smoothstep(0.05, 0.15, h));
+            color = mix(color, highlandColor, albedo);
+            color *= (0.6 + 0.4 * smoothstep(-0.01, 0.1, h));
+
+            float polarMask = smoothstep(0.85, 1.0, abs(normalize(rotatedCoord).y));
+            color = mix(color, COLOR_ICE, polarMask * smoothstep(0.05, 0.15, h));
+
+            vec3 cloudsCoord = rotateY(iTime * -0.02) * rotatedCoord + vec3(iTime * 0.05);
+            float cloudsDensity = remap(domainWarpingFBM(cloudsCoord), -1., 1., 0., 1.);
+            cloudsDensity = smoothstep(0.55, 0.75, cloudsDensity);
+            color = mix(color, CLOUD_COLOR, cloudsDensity * 0.35);
+
+            return color;
+        }
+
+        Hit intersectPlanet(Ray ray) {
+            float len = sphIntersect(ray, planet);
+            Hit miss = Hit(INFINITY, vec3(0.), Material(vec3(0.), -1., -1.));
+            if(len < 0.) return miss;
+
+            vec3 position = ray.origin + len * ray.direction;
+            vec3 rotatedCoord = (position - PLANET_POSITION) * PLANET_ROTATION + PLANET_POSITION;
+
+            float h = planetNoise(rotatedCoord);
+            float albedo = getAlbedoMap(rotatedCoord);
+            vec3 normal = planetNormal(position);
+
+            vec3 color = COLOR_BASALT;
+            vec3 highlandColor = mix(COLOR_RUST, COLOR_DUST, smoothstep(0.05, 0.15, h));
+            color = mix(color, highlandColor, albedo);
+
+            color *= (0.6 + 0.4 * smoothstep(-0.01, 0.1, h));
+
+            float polarMask = smoothstep(0.85, 1.0, abs(normalize(rotatedCoord).y));
+            color = mix(color, COLOR_ICE, polarMask * smoothstep(0.05, 0.15, h));
+
+            vec3 cloudsCoord = rotateY(iTime * -0.02) * rotatedCoord + vec3(iTime * 0.05);
+            float cloudsDensity = remap(domainWarpingFBM(cloudsCoord), -1., 1., 0., 1.);
+            cloudsDensity = smoothstep(0.55, 0.75, cloudsDensity);
+
+            color = mix(color, CLOUD_COLOR, cloudsDensity * 0.35);
+
+            float specular = 0.05;
+            if (polarMask > 0.5 && h > 0.15) specular = 0.4;
+
+            return Hit(len, normal, Material(color, 1., specular));
+        }
+
+        vec3 radiance(Ray ray, inout float spaceMask) {
+            vec3 color = vec3(0.0);
+            vec3 attenuation = vec3(1.0);
+
+            for(int i = 1; i <= MAX_BOUNCES; i++) {
+                Hit hit = intersectPlanet(ray);
+
+                if(hit.len < INFINITY) {
+                    spaceMask = 0.;
+                    vec3 hitPosition = ray.origin + hit.len * ray.direction;
+
+                    Hit shadowHit = intersectPlanet(Ray(hitPosition + EPSILON * SUN_DIR, SUN_DIR));
+                    float hitDirectLight = step(INFINITY, shadowHit.len);
+
+                    float directLightIntensity = max(dot(hit.normal, SUN_DIR), 0.0);
+                    vec3 diffuseLight = hitDirectLight * directLightIntensity * SUN_COLOR;
+                    vec3 diffuseColor = hit.material.color.rgb * (AMBIENT_LIGHT + diffuseLight);
+
+                    vec3 reflected = normalize(reflect(-SUN_DIR, hit.normal));
+                    float phongValue = pow(max(0.0, dot(ray.direction, reflected)), 10.) * 0.5;
+                    vec3 specularColor = hit.material.specular * vec3(phongValue);
+
+                    color += attenuation * (diffuseColor + specularColor);
+                    break;
+                } else {
+                    break;
+                }
+            }
+            return color;
+        }
+
+        vec3 atmosphereColor(vec3 ro, vec3 rd, float spaceMask) {
+            float distToPlanet = sphIntersect(Ray(ro, rd), planet);
+            float distToCenter = length(cross(rd, PLANET_POSITION - ro));
+            float distFromEdge = distToCenter - PLANET_RADIUS;
+
+            if (distToPlanet < 0.) {
+                float glow = exp(-distFromEdge * 5.5) * 0.5;
+                return ATMOSPHERE_COLOR * glow * spaceMask;
+            }
+
+            vec3 pos = ro + distToPlanet * rd;
+            vec3 normal = normalize(pos - PLANET_POSITION);
+
+            float rim = 1.0 - max(dot(-rd, normal), 0.0);
+            rim = pow(rim, 5.5);
+            return ATMOSPHERE_COLOR * rim * 0.4;
+        }
+
+        void mainImage(out vec4 fragColor, in vec2 fragCoord) {
+            vec2 uv = (fragCoord / iResolution.xy - 0.5) * iResolution.xy / iResolution.y;
+            vec3 ro = vec3(CAMERA_POSITION);
+            vec3 rd = normalize(vec3(uv.x, uv.y, -1));
+            Ray ray = Ray(ro, rd);
+
+            float spaceMask = 1.;
+            vec3 color = radiance(ray, spaceMask);
+            vec3 atmoCol = atmosphereColor(ro, rd, spaceMask);
+            color += atmoCol;
+
+            color = color * 0.8;
+            const float a = 2.51, b = 0.03, c = 2.43, d = 0.59, e = 0.14;
+            color = clamp((color * (a * color + b)) / (color * (c * color + d) + e), 0.0, 1.0);
+
+            color = pow(color, vec3(0.4545));
+
+            // Alpha: 1.0 for planet, atmosphere glow intensity for space
+            float alpha = 1.0 - spaceMask;
+            if (spaceMask > 0.5) {
+                float distToCenter = length(cross(rd, PLANET_POSITION - ro));
+                float edgeDist = max(0.0, distToCenter - PLANET_RADIUS);
+                float halo = exp(-edgeDist * 9.0);
+                alpha = clamp(halo * 0.42, 0.0, 0.42);
+            }
+
+            fragColor = vec4(color, alpha);
+        }
+
+        void main() {
+            mainImage(gl_FragColor, gl_FragCoord.xy);
+        }
+    </script>
+
+    <script>
+        const canvas = document.getElementById('glcanvas');
+        const gl = canvas.getContext('webgl', {alpha: true, premultipliedAlpha: false});
+        const PREVIEW_SCALE = new URLSearchParams(window.location.search).get('preview') === '1' ? 0.78 : 1.0;
+
+        if (!gl) { alert('WebGL not supported'); }
+
+        function createShader(gl, type, source) {
+            const shader = gl.createShader(type);
+            gl.shaderSource(shader, source);
+            gl.compileShader(shader);
+            if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+                console.error(gl.getShaderInfoLog(shader));
+                gl.deleteShader(shader);
+                return null;
+            }
+            return shader;
+        }
+
+        const vsSource = document.getElementById('vs').text;
+        const fsSource = document.getElementById('fs').text;
+
+        const vertexShader = createShader(gl, gl.VERTEX_SHADER, vsSource);
+        const fragmentShader = createShader(gl, gl.FRAGMENT_SHADER, fsSource);
+
+        const program = gl.createProgram();
+        gl.attachShader(program, vertexShader);
+        gl.attachShader(program, fragmentShader);
+        gl.linkProgram(program);
+
+        if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+            console.error(gl.getProgramInfoLog(program));
+        }
+
+        const positionBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
+            -1, -1, 1, -1, -1, 1, -1, 1, 1, -1, 1, 1,
+        ]), gl.STATIC_DRAW);
+
+        const positionLocation = gl.getAttribLocation(program, "position");
+        gl.enableVertexAttribArray(positionLocation);
+        gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0);
+
+        gl.useProgram(program);
+
+        const timeLocation = gl.getUniformLocation(program, "iTime");
+        const resolutionLocation = gl.getUniformLocation(program, "iResolution");
+
+        function resize() {
+            canvas.width = Math.max(1, Math.floor(window.innerWidth * PREVIEW_SCALE));
+            canvas.height = Math.max(1, Math.floor(window.innerHeight * PREVIEW_SCALE));
+            gl.viewport(0, 0, canvas.width, canvas.height);
+            gl.uniform3f(resolutionLocation, canvas.width, canvas.height, 1.0);
+        }
+
+        window.addEventListener('resize', resize);
+        resize();
+
+        function render(time) {
+            gl.uniform1f(timeLocation, time * 0.001);
+            gl.drawArrays(gl.TRIANGLES, 0, 6);
+            requestAnimationFrame(render);
+        }
+
+        requestAnimationFrame(render);
+    </script>
+</body>
+</html>

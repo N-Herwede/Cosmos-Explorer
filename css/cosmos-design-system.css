@@ -1,0 +1,1164 @@
+/* ============================================================
+   COSMOS DESIGN SYSTEM — Scientific Instrument Interface
+   ============================================================
+   Sterile laboratory aesthetic · strictly monochrome
+   Frosted white glass · neon white glow · precision controls
+   ============================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+/* ============================================================
+   1. DESIGN TOKENS
+   ============================================================ */
+:root {
+    /* ---- COLOR SYSTEM (strictly monochrome) ---- */
+    --c-white:          #ffffff;
+    --c-white-97:       #f8f8f8;
+    --c-white-95:       #f2f2f2;
+    --c-white-92:       #ebebeb;
+    --c-white-88:       #e0e0e0;
+    --c-white-80:       #cccccc;
+    --c-gray-65:        #a6a6a6;
+    --c-gray-50:        #808080;
+    --c-gray-35:        #595959;
+    --c-gray-25:        #404040;
+    --c-gray-18:        #2e2e2e;
+    --c-gray-12:        #1f1f1f;
+    --c-gray-08:        #141414;
+    --c-black:          #000000;
+
+    /* Semantic color aliases */
+    --color-surface:            var(--c-white-97);
+    --color-surface-raised:     var(--c-white);
+    --color-surface-sunken:     var(--c-white-92);
+    --color-surface-viewport:   var(--c-black);
+    --color-border:             var(--c-white-88);
+    --color-border-subtle:      var(--c-white-92);
+    --color-border-strong:      var(--c-white-80);
+    --color-text-primary:       var(--c-gray-18);
+    --color-text-secondary:     var(--c-gray-50);
+    --color-text-tertiary:      var(--c-gray-65);
+    --color-text-on-dark:       var(--c-white-95);
+    --color-text-on-dark-muted: rgba(255, 255, 255, 0.6);
+    --color-indicator-active:   var(--c-white);
+    --color-indicator-idle:     var(--c-gray-65);
+    --color-indicator-disabled: var(--c-white-88);
+
+    /* ---- FROSTED GLASS ---- */
+    --glass-bg:                 rgba(255, 255, 255, 0.88);
+    --glass-bg-strong:          rgba(255, 255, 255, 0.94);
+    --glass-bg-subtle:          rgba(255, 255, 255, 0.72);
+    --glass-bg-dark:            rgba(0, 0, 0, 0.75);
+    --glass-bg-dark-strong:     rgba(0, 0, 0, 0.88);
+    --glass-border:             rgba(255, 255, 255, 0.5);
+    --glass-border-dark:        rgba(255, 255, 255, 0.15);
+    --glass-blur:               16px;
+    --glass-blur-strong:        24px;
+
+    /* ---- TYPOGRAPHY ---- */
+    --font-body:        'Inter', -apple-system, 'Segoe UI', system-ui, sans-serif;
+    --font-mono:        'SF Mono', 'Cascadia Code', 'Consolas', 'Monaco', monospace;
+
+    --text-xs:          0.625rem;     /* 10px */
+    --text-sm:          0.75rem;      /* 12px */
+    --text-base:        0.8125rem;    /* 13px */
+    --text-md:          0.875rem;     /* 14px */
+    --text-lg:          1rem;         /* 16px */
+    --text-xl:          1.25rem;      /* 20px */
+    --text-2xl:         1.5rem;       /* 24px */
+    --text-3xl:         2rem;         /* 32px */
+    --text-display:     clamp(2.5rem, 8vw, 6rem);
+
+    --leading-tight:    1.15;
+    --leading-normal:   1.5;
+    --leading-relaxed:  1.7;
+
+    --tracking-tight:   -0.01em;
+    --tracking-normal:  0;
+    --tracking-wide:    0.04em;
+    --tracking-wider:   0.08em;
+    --tracking-widest:  0.16em;
+
+    /* ---- SPACING ---- */
+    --sp-1:     2px;
+    --sp-2:     4px;
+    --sp-3:     6px;
+    --sp-4:     8px;
+    --sp-5:     10px;
+    --sp-6:     12px;
+    --sp-8:     16px;
+    --sp-10:    20px;
+    --sp-12:    24px;
+    --sp-16:    32px;
+    --sp-20:    40px;
+    --sp-24:    48px;
+    --sp-32:    64px;
+    --sp-40:    80px;
+    --sp-48:    96px;
+
+    /* ---- RADII ---- */
+    --radius-sm:    4px;
+    --radius-md:    8px;
+    --radius-lg:    12px;
+    --radius-xl:    16px;
+    --radius-full:  9999px;
+
+    /* ---- SHADOWS ---- */
+    --shadow-xs:    0 1px 2px rgba(0, 0, 0, 0.04);
+    --shadow-sm:    0 2px 6px rgba(0, 0, 0, 0.06);
+    --shadow-md:    0 4px 16px rgba(0, 0, 0, 0.08);
+    --shadow-lg:    0 8px 32px rgba(0, 0, 0, 0.10);
+    --shadow-xl:    0 16px 48px rgba(0, 0, 0, 0.14);
+    --shadow-inset: inset 0 1px 4px rgba(0, 0, 0, 0.04);
+
+    /* ---- NEON WHITE GLOWS (functional feedback only) ---- */
+    --glow-focus:       0 0 0 2px rgba(255, 255, 255, 0.9),
+                        0 0 12px rgba(255, 255, 255, 0.4);
+    --glow-active:      0 0 0 2px var(--c-white),
+                        0 0 16px rgba(255, 255, 255, 0.5),
+                        0 0 32px rgba(255, 255, 255, 0.15);
+    --glow-selected:    0 0 8px rgba(255, 255, 255, 0.35);
+    --glow-subtle:      0 0 10px rgba(255, 255, 255, 0.15);
+    --glow-line:        0 0 6px rgba(255, 255, 255, 0.6),
+                        0 0 12px rgba(255, 255, 255, 0.3);
+    --glow-neon:        0 0 10px #fff,
+                        0 0 20px #fff,
+                        0 0 40px rgba(255, 255, 255, 0.6);
+    --glow-neon-strong: 0 0 10px #fff,
+                        0 0 20px #fff,
+                        0 0 40px rgba(255, 255, 255, 0.8),
+                        0 0 60px rgba(255, 255, 255, 0.4);
+    --glow-pulse:       0 0 6px rgba(255, 255, 255, 0.3);
+    --glow-soft:        0 0 15px rgba(255, 255, 255, 0.6),
+                        0 0 30px rgba(255, 255, 255, 0.3);
+
+    /* ---- TRANSITIONS ---- */
+    --ease-default:     cubic-bezier(0.4, 0, 0.2, 1);
+    --ease-bounce:      cubic-bezier(0.34, 1.56, 0.64, 1);
+    --duration-fast:    120ms;
+    --duration-normal:  200ms;
+    --duration-slow:    350ms;
+
+    /* ---- Z-INDEX LAYERS ---- */
+    --z-viewport:       1;
+    --z-hud:            30;
+    --z-panel:          50;
+    --z-panel-overlay:  60;
+    --z-header:         70;
+    --z-sidebar:        80;
+    --z-modal-backdrop: 95;
+    --z-modal:          100;
+    --z-toast:          110;
+    --z-loading:        120;
+}
+
+
+/* ============================================================
+   2. RESET & BASE
+   ============================================================ */
+*, *::before, *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+html {
+    scroll-behavior: smooth;
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+}
+
+body {
+    font-family: var(--font-body);
+    font-size: var(--text-base);
+    line-height: var(--leading-normal);
+    color: var(--color-text-primary);
+    background: var(--color-surface);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    letter-spacing: var(--tracking-normal);
+}
+
+img, svg { display: block; max-width: 100%; }
+button, input, select, textarea { font-family: inherit; font-size: inherit; }
+button { cursor: pointer; border: none; background: none; }
+a { color: inherit; text-decoration: none; }
+
+::selection {
+    background: var(--c-gray-18);
+    color: var(--c-white);
+}
+
+
+/* ============================================================
+   3. UTILITY CLASSES
+   ============================================================ */
+.hidden {
+    opacity: 0 !important;
+    pointer-events: none !important;
+}
+
+.is-hidden {
+    display: none !important;
+}
+
+.collapsed {
+    transform: translateX(100%) !important;
+}
+
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    border: 0;
+}
+
+
+/* ============================================================
+   4. TYPOGRAPHY CLASSES
+   ============================================================ */
+.ci-label {
+    font-size: var(--text-xs);
+    font-weight: 600;
+    letter-spacing: var(--tracking-wider);
+    text-transform: uppercase;
+    color: var(--color-text-secondary);
+    line-height: var(--leading-tight);
+}
+
+.ci-label--dark {
+    color: var(--color-text-on-dark-muted);
+}
+
+.ci-heading {
+    font-size: var(--text-md);
+    font-weight: 600;
+    letter-spacing: var(--tracking-wide);
+    text-transform: uppercase;
+    color: var(--color-text-primary);
+}
+
+.ci-heading--section {
+    font-size: var(--text-xs);
+    font-weight: 700;
+    letter-spacing: var(--tracking-wider);
+    text-transform: uppercase;
+    color: var(--color-text-secondary);
+    padding-bottom: var(--sp-4);
+    border-bottom: 1px solid var(--color-border);
+    margin-bottom: var(--sp-6);
+}
+
+.ci-heading--display {
+    font-size: var(--text-3xl);
+    font-weight: 800;
+    letter-spacing: var(--tracking-tight);
+    text-transform: uppercase;
+    color: var(--color-text-primary);
+    line-height: var(--leading-tight);
+}
+
+.ci-readout {
+    font-family: var(--font-mono);
+    font-size: var(--text-sm);
+    font-weight: 500;
+    letter-spacing: var(--tracking-wide);
+    color: var(--color-text-primary);
+    font-variant-numeric: tabular-nums;
+}
+
+.ci-readout--dark {
+    color: var(--color-text-on-dark);
+}
+
+.ci-body {
+    font-size: var(--text-base);
+    font-weight: 400;
+    line-height: var(--leading-relaxed);
+    color: var(--color-text-secondary);
+}
+
+
+/* ============================================================
+   5. PANELS
+   ============================================================ */
+.ci-panel {
+    background: var(--glass-bg-strong);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-md);
+    -webkit-backdrop-filter: blur(var(--glass-blur));
+    backdrop-filter: blur(var(--glass-blur));
+}
+
+.ci-panel--dark {
+    background: var(--glass-bg-dark);
+    border-color: var(--glass-border-dark);
+    color: var(--color-text-on-dark);
+}
+
+.ci-panel--raised {
+    background: var(--color-surface-raised);
+    box-shadow: var(--shadow-lg);
+}
+
+.ci-panel--viewport {
+    background: var(--color-surface-viewport);
+    border: 2px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    position: relative;
+}
+
+.ci-panel--floating {
+    position: absolute;
+    box-shadow: var(--shadow-lg);
+}
+
+.ci-panel__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--sp-6);
+    padding: var(--sp-6) var(--sp-8);
+    border-bottom: 1px solid var(--color-border-subtle);
+    min-height: 44px;
+}
+
+.ci-panel__header--dark {
+    border-bottom-color: rgba(255, 255, 255, 0.1);
+}
+
+.ci-panel__body {
+    padding: var(--sp-8);
+}
+
+.ci-panel__body--scroll {
+    overflow-y: auto;
+}
+
+.ci-panel__body--scroll::-webkit-scrollbar {
+    width: 4px;
+}
+
+.ci-panel__body--scroll::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.ci-panel__body--scroll::-webkit-scrollbar-thumb {
+    background: var(--c-white-80);
+    border-radius: 2px;
+}
+
+
+/* ============================================================
+   6. BUTTONS
+   ============================================================ */
+.ci-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--sp-3);
+    height: 32px;
+    padding: 0 var(--sp-6);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    background: var(--color-surface-raised);
+    color: var(--color-text-primary);
+    font-size: var(--text-xs);
+    font-weight: 600;
+    letter-spacing: var(--tracking-wider);
+    text-transform: uppercase;
+    white-space: nowrap;
+    transition: all var(--duration-normal) var(--ease-default);
+    cursor: pointer;
+    -webkit-user-select: none;
+    user-select: none;
+    position: relative;
+    overflow: hidden;
+    isolation: isolate;
+}
+
+@keyframes ciBtnTextureShift {
+    from { background-position: 0% 0%, 0 0; }
+    to { background-position: 200% 0%, 0 0; }
+}
+
+.ci-btn::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+    opacity: 0.2;
+    background-image:
+        repeating-linear-gradient(125deg, rgba(255,255,255,0.16) 0px, rgba(255,255,255,0.16) 1px, transparent 1px, transparent 6px),
+        linear-gradient(180deg, rgba(255,255,255,0.12) 0%, rgba(255,255,255,0) 44%, rgba(0,0,0,0.12) 100%);
+    background-size: 210% 100%, 100% 100%;
+    background-position: 0% 0%, 0 0;
+    mix-blend-mode: soft-light;
+    animation: ciBtnTextureShift 6.2s linear infinite;
+}
+
+.ci-btn:hover::after {
+    opacity: 0.34;
+    animation-duration: 3.2s;
+}
+
+.ci-btn > * {
+    position: relative;
+    z-index: 1;
+}
+
+.ci-btn:hover {
+    background: var(--c-white-95);
+    border-color: var(--color-border-strong);
+    box-shadow: var(--shadow-xs);
+}
+
+.ci-btn:active,
+.ci-btn.active {
+    background: var(--color-text-primary);
+    color: var(--color-surface-raised);
+    border-color: var(--color-text-primary);
+    box-shadow: var(--glow-active);
+}
+
+.ci-btn:focus-visible {
+    outline: none;
+    box-shadow: var(--glow-focus);
+}
+
+.ci-btn:disabled,
+.ci-btn[disabled] {
+    opacity: 0.35;
+    cursor: not-allowed;
+    box-shadow: none;
+}
+
+/* Size variants */
+.ci-btn--sm {
+    height: 26px;
+    padding: 0 var(--sp-4);
+    font-size: 0.5625rem;
+    border-radius: var(--radius-sm);
+}
+
+.ci-btn--lg {
+    height: 40px;
+    padding: 0 var(--sp-10);
+    font-size: var(--text-sm);
+}
+
+.ci-btn--icon {
+    width: 32px;
+    padding: 0;
+}
+
+.ci-btn--icon.ci-btn--sm {
+    width: 26px;
+    height: 26px;
+}
+
+.ci-btn--icon svg {
+    width: 16px;
+    height: 16px;
+    fill: currentColor;
+}
+
+/* Style variants */
+.ci-btn--pill {
+    border-radius: var(--radius-full);
+}
+
+.ci-btn--primary {
+    background: var(--color-text-primary);
+    color: var(--color-surface-raised);
+    border-color: var(--color-text-primary);
+}
+
+.ci-btn--primary:hover {
+    background: var(--c-black);
+    box-shadow: var(--shadow-md), var(--glow-subtle);
+}
+
+.ci-btn--ghost {
+    background: transparent;
+    border-color: transparent;
+}
+
+.ci-btn--ghost:hover {
+    background: rgba(0, 0, 0, 0.04);
+    border-color: transparent;
+}
+
+/* Dark-context buttons (for use inside dark panels / viewport) */
+.ci-btn--on-dark {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.2);
+    color: var(--color-text-on-dark);
+}
+
+.ci-btn--on-dark:hover {
+    background: rgba(255, 255, 255, 0.16);
+    border-color: rgba(255, 255, 255, 0.4);
+}
+
+.ci-btn--on-dark:active,
+.ci-btn--on-dark.active {
+    background: rgba(255, 255, 255, 0.22);
+    border-color: rgba(255, 255, 255, 0.8);
+    box-shadow: var(--glow-active);
+}
+
+
+/* ============================================================
+   7. FORM CONTROLS — TOGGLE SWITCH
+   ============================================================ */
+.ci-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--sp-4);
+}
+
+.ci-toggle__input {
+    width: 36px;
+    height: 20px;
+    margin: 0;
+    -webkit-appearance: none;
+    appearance: none;
+    border-radius: var(--radius-full);
+    border: 1.5px solid var(--color-border-strong);
+    background: var(--c-white-92);
+    position: relative;
+    cursor: pointer;
+    transition: all var(--duration-normal) var(--ease-default);
+    flex-shrink: 0;
+}
+
+.ci-toggle__input::after {
+    content: "";
+    position: absolute;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    top: 1.5px;
+    left: 2px;
+    background: var(--c-white);
+    box-shadow: var(--shadow-xs);
+    transition: transform var(--duration-normal) var(--ease-default);
+}
+
+.ci-toggle__input:checked {
+    background: var(--color-text-primary);
+    border-color: var(--color-text-primary);
+}
+
+.ci-toggle__input:checked::after {
+    transform: translateX(16px);
+    background: var(--c-white);
+    box-shadow: var(--glow-subtle);
+}
+
+.ci-toggle__input:focus-visible {
+    outline: none;
+    box-shadow: var(--glow-focus);
+}
+
+
+/* ============================================================
+   8. FORM CONTROLS — SLIDER
+   ============================================================ */
+.ci-slider {
+    width: 100%;
+    height: 20px;
+    padding: 0;
+    -webkit-appearance: none;
+    appearance: none;
+    background: transparent;
+    cursor: pointer;
+}
+
+.ci-slider::-webkit-slider-runnable-track {
+    height: 3px;
+    border-radius: 2px;
+    background: var(--c-white-88);
+}
+
+.ci-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--color-text-primary);
+    border: 2px solid var(--c-white);
+    box-shadow: var(--shadow-sm);
+    margin-top: -5.5px;
+    transition: box-shadow var(--duration-fast) var(--ease-default);
+}
+
+.ci-slider::-webkit-slider-thumb:hover {
+    box-shadow: var(--shadow-sm), var(--glow-subtle);
+    transform: scale(1.1);
+}
+
+.ci-slider:active::-webkit-slider-thumb {
+    box-shadow: var(--glow-active);
+}
+
+.ci-slider:focus-visible {
+    outline: none;
+}
+
+.ci-slider:focus-visible::-webkit-slider-thumb {
+    box-shadow: var(--glow-focus);
+}
+
+/* Firefox */
+.ci-slider::-moz-range-track {
+    height: 3px;
+    border-radius: 2px;
+    background: var(--c-white-88);
+    border: 0;
+}
+
+.ci-slider::-moz-range-thumb {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--color-text-primary);
+    border: 2px solid var(--c-white);
+    box-shadow: var(--shadow-sm);
+    cursor: pointer;
+}
+
+/* Dark variant */
+.ci-slider--dark::-webkit-slider-runnable-track {
+    background: rgba(255, 255, 255, 0.15);
+}
+
+.ci-slider--dark::-webkit-slider-thumb {
+    background: var(--c-white);
+    border-color: rgba(255, 255, 255, 0.3);
+}
+
+.ci-slider--dark::-moz-range-track {
+    background: rgba(255, 255, 255, 0.15);
+}
+
+.ci-slider--dark::-moz-range-thumb {
+    background: var(--c-white);
+    border-color: rgba(255, 255, 255, 0.3);
+}
+
+
+/* ============================================================
+   9. FORM CONTROLS — SELECT
+   ============================================================ */
+.ci-select {
+    width: 100%;
+    height: 32px;
+    padding: 0 var(--sp-10) 0 var(--sp-5);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    background: var(--color-surface-raised);
+    color: var(--color-text-primary);
+    font-size: var(--text-sm);
+    font-weight: 500;
+    -webkit-appearance: none;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1L5 5L9 1' stroke='%23808080' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+    cursor: pointer;
+    transition: border-color var(--duration-normal) var(--ease-default);
+}
+
+.ci-select:hover {
+    border-color: var(--color-border-strong);
+}
+
+.ci-select:focus-visible {
+    outline: none;
+    box-shadow: var(--glow-focus);
+}
+
+
+/* ============================================================
+   10. FORM CONTROLS — TEXT INPUT
+   ============================================================ */
+.ci-input {
+    width: 100%;
+    height: 32px;
+    padding: 0 var(--sp-5);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    background: var(--color-surface-raised);
+    color: var(--color-text-primary);
+    font-size: var(--text-sm);
+    transition: border-color var(--duration-normal) var(--ease-default);
+}
+
+.ci-input::placeholder {
+    color: var(--color-text-tertiary);
+}
+
+.ci-input:focus-visible {
+    outline: none;
+    box-shadow: var(--glow-focus);
+}
+
+
+/* ============================================================
+   11. FORM CONTROLS — CONTROL GROUP
+   ============================================================ */
+.ci-control-group {
+    display: grid;
+    gap: var(--sp-2);
+    margin-bottom: var(--sp-4);
+}
+
+.ci-control-group:last-child {
+    margin-bottom: 0;
+}
+
+.ci-control-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--sp-4);
+}
+
+
+/* ============================================================
+   12. STATUS INDICATORS
+   ============================================================ */
+.ci-status-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--c-gray-65);
+    flex-shrink: 0;
+    transition: all var(--duration-normal) var(--ease-default);
+}
+
+.ci-status-dot--active {
+    background: var(--c-white);
+    box-shadow: var(--glow-subtle);
+}
+
+.ci-status-dot--live {
+    background: var(--c-white);
+    box-shadow: var(--glow-pulse);
+    animation: ci-pulse 2s ease-in-out infinite;
+}
+
+@keyframes ci-pulse {
+    0%, 100% { box-shadow: 0 0 4px rgba(255, 255, 255, 0.3); }
+    50%      { box-shadow: 0 0 12px rgba(255, 255, 255, 0.6); }
+}
+
+/* Monochrome status text (backward compat for JS class toggles) */
+.ci-status--nominal  { color: var(--color-text-primary); }
+.ci-status--warning  { color: var(--c-gray-50); font-style: italic; }
+.ci-status--critical { color: var(--c-gray-25); font-weight: 700; text-decoration: underline; }
+
+.status-green {
+    color: var(--color-text-primary) !important;
+    text-shadow: none !important;
+    font-weight: 600;
+}
+
+.status-amber {
+    color: var(--c-gray-50) !important;
+    text-shadow: none !important;
+    font-style: italic;
+}
+
+.status-red {
+    color: var(--c-gray-25) !important;
+    text-shadow: none !important;
+    text-decoration: underline;
+    font-weight: 700;
+}
+
+
+/* ============================================================
+   13. READOUT PILL
+   ============================================================ */
+.ci-readout-pill {
+    display: grid;
+    gap: 1px;
+    padding: var(--sp-3) var(--sp-5);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    background: var(--color-surface-raised);
+    min-width: 72px;
+}
+
+.ci-readout-pill--on-dark {
+    border-color: rgba(255, 255, 255, 0.2);
+    background: rgba(0, 0, 0, 0.3);
+}
+
+
+/* ============================================================
+   14. CHIP / BADGE
+   ============================================================ */
+.ci-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--sp-3);
+    padding: var(--sp-2) var(--sp-5);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-full);
+    background: var(--color-surface-sunken);
+    font-size: var(--text-xs);
+    font-weight: 600;
+    letter-spacing: var(--tracking-wider);
+    text-transform: uppercase;
+    color: var(--color-text-secondary);
+}
+
+
+/* ============================================================
+   15. TABS (Segmented Control)
+   ============================================================ */
+.ci-tabs {
+    display: flex;
+    gap: 1px;
+    padding: 2px;
+    background: var(--color-surface-sunken);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--color-border-subtle);
+}
+
+.ci-tab {
+    flex: 1;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    border-radius: calc(var(--radius-md) - 2px);
+    background: transparent;
+    color: var(--color-text-secondary);
+    font-size: var(--text-xs);
+    font-weight: 600;
+    letter-spacing: var(--tracking-wider);
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all var(--duration-normal) var(--ease-default);
+}
+
+.ci-tab:hover {
+    color: var(--color-text-primary);
+}
+
+.ci-tab.active {
+    background: var(--color-surface-raised);
+    color: var(--color-text-primary);
+    box-shadow: var(--shadow-xs);
+}
+
+
+/* ============================================================
+   16. TAG
+   ============================================================ */
+.ci-tag {
+    display: inline-block;
+    padding: var(--sp-2) var(--sp-4);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    font-size: 0.5625rem;
+    font-weight: 600;
+    letter-spacing: var(--tracking-wider);
+    text-transform: uppercase;
+    color: var(--color-text-secondary);
+}
+
+
+/* ============================================================
+   17. DATA DISPLAY — STAT CARD
+   ============================================================ */
+.ci-stat-card {
+    border: 1px solid var(--color-border-subtle);
+    border-radius: var(--radius-md);
+    padding: var(--sp-4) var(--sp-5);
+    background: var(--color-surface-sunken);
+}
+
+.ci-stat-card__label {
+    font-size: var(--text-xs);
+    font-weight: 600;
+    letter-spacing: var(--tracking-wider);
+    text-transform: uppercase;
+    color: var(--color-text-tertiary);
+    margin-bottom: var(--sp-1);
+}
+
+.ci-stat-card__value {
+    font-family: var(--font-mono);
+    font-size: var(--text-sm);
+    font-weight: 500;
+    color: var(--color-text-primary);
+    font-variant-numeric: tabular-nums;
+}
+
+
+/* ============================================================
+   18. DATA DISPLAY — COMPOSITION BAR
+   ============================================================ */
+.ci-bar {
+    display: grid;
+    grid-template-columns: 72px 1fr 36px;
+    align-items: center;
+    gap: var(--sp-4);
+}
+
+.ci-bar__label {
+    font-size: var(--text-xs);
+    font-weight: 500;
+    color: var(--color-text-secondary);
+    text-transform: uppercase;
+    letter-spacing: var(--tracking-wide);
+}
+
+.ci-bar__track {
+    height: 4px;
+    border-radius: 2px;
+    background: var(--c-white-88);
+    overflow: hidden;
+}
+
+.ci-bar__fill {
+    height: 100%;
+    border-radius: 2px;
+    background: linear-gradient(90deg, var(--c-gray-35), var(--c-gray-65));
+    transition: width var(--duration-slow) var(--ease-default);
+}
+
+.ci-bar__value {
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    font-weight: 500;
+    color: var(--color-text-secondary);
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
+
+/* ============================================================
+   19. TOAST NOTIFICATIONS
+   ============================================================ */
+.ci-toast-stack {
+    position: fixed;
+    right: var(--sp-10);
+    bottom: var(--sp-24);
+    display: grid;
+    gap: var(--sp-3);
+    z-index: var(--z-toast);
+    pointer-events: none;
+}
+
+.ci-toast {
+    padding: var(--sp-4) var(--sp-6);
+    border: 1px solid var(--color-border);
+    border-left: 3px solid var(--color-text-primary);
+    border-radius: var(--radius-md);
+    background: var(--glass-bg-strong);
+    -webkit-backdrop-filter: blur(var(--glass-blur));
+    backdrop-filter: blur(var(--glass-blur));
+    box-shadow: var(--shadow-md);
+    color: var(--color-text-primary);
+    font-size: var(--text-sm);
+    font-weight: 500;
+    letter-spacing: var(--tracking-wide);
+    text-transform: uppercase;
+    pointer-events: auto;
+    animation: ci-toast-in var(--duration-slow) var(--ease-default);
+}
+
+@keyframes ci-toast-in {
+    from { opacity: 0; transform: translateX(12px); }
+    to   { opacity: 1; transform: translateX(0); }
+}
+
+
+/* ============================================================
+   20. LOADING SCREEN
+   ============================================================ */
+.ci-loading {
+    position: fixed;
+    inset: 0;
+    z-index: var(--z-loading);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--color-surface);
+    transition: opacity 0.6s ease;
+}
+
+.ci-loading.hidden {
+    opacity: 0;
+    pointer-events: none;
+}
+
+.ci-loading__card {
+    width: min(360px, calc(100vw - 40px));
+    padding: var(--sp-16);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    background: var(--color-surface-raised);
+    box-shadow: var(--shadow-lg);
+    text-align: center;
+}
+
+.ci-loading__title {
+    font-size: var(--text-sm);
+    font-weight: 700;
+    letter-spacing: var(--tracking-widest);
+    text-transform: uppercase;
+    color: var(--color-text-primary);
+    margin-bottom: var(--sp-6);
+}
+
+.ci-loading__status {
+    font-size: var(--text-xs);
+    font-weight: 500;
+    letter-spacing: var(--tracking-wider);
+    text-transform: uppercase;
+    color: var(--color-text-tertiary);
+    margin-bottom: var(--sp-6);
+}
+
+.ci-loading__track {
+    height: 3px;
+    border-radius: 2px;
+    background: var(--c-white-88);
+    overflow: hidden;
+}
+
+.ci-loading__progress {
+    width: 0;
+    height: 100%;
+    border-radius: 2px;
+    background: linear-gradient(90deg, var(--c-gray-50), var(--c-gray-25));
+    transition: width 0.25s ease;
+}
+
+
+/* ============================================================
+   21. MODAL OVERLAY
+   ============================================================ */
+.ci-modal-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: var(--z-modal-backdrop);
+    background: rgba(0, 0, 0, 0.6);
+    -webkit-backdrop-filter: blur(8px);
+    backdrop-filter: blur(8px);
+}
+
+.ci-modal {
+    position: fixed;
+    z-index: var(--z-modal);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    background: var(--glass-bg-strong);
+    -webkit-backdrop-filter: blur(var(--glass-blur-strong));
+    backdrop-filter: blur(var(--glass-blur-strong));
+    box-shadow: var(--shadow-xl);
+}
+
+
+/* ============================================================
+   22. INTERACTION STATES
+   ============================================================ */
+
+/* Dragging */
+.ci-dragging {
+    box-shadow: var(--shadow-lg) !important;
+    cursor: grabbing !important;
+    opacity: 0.95;
+}
+
+/* Locked */
+.ci-locked {
+    opacity: 0.45;
+    pointer-events: none;
+    position: relative;
+}
+
+.ci-locked::after {
+    content: "LOCKED";
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: var(--text-xs);
+    font-weight: 700;
+    letter-spacing: var(--tracking-widest);
+    color: var(--color-text-tertiary);
+    background: rgba(255, 255, 255, 0.5);
+    border-radius: inherit;
+}
+
+/* Live updating */
+.ci-live-updating {
+    animation: ci-live-glow 1.5s ease-in-out infinite;
+}
+
+@keyframes ci-live-glow {
+    0%, 100% { box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.1); }
+    50%      { box-shadow: 0 0 8px rgba(255, 255, 255, 0.3); }
+}
+
+
+/* ============================================================
+   23. PHOTO MODE
+   ============================================================ */
+body.photo-mode #ci-header-bar,
+body.photo-mode #main-header,
+body.photo-mode #quick-actions,
+body.photo-mode #panel-toggle,
+body.photo-mode #control-panel,
+body.photo-mode #info-panel,
+body.photo-mode #compare-panel,
+body.photo-mode #shortcuts-help,
+body.photo-mode #ci-bottom-bar,
+body.photo-mode .hud-panel-left,
+body.photo-mode .hud-panel-right,
+body.photo-mode .console-shell,
+body.photo-mode .ci-hud-panel-left,
+body.photo-mode .ci-hud-panel-right,
+body.photo-mode .ci-console-shell {
+    display: none !important;
+}
+
+
+/* ============================================================
+   24. SCROLLBAR GLOBAL
+   ============================================================ */
+::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--c-white-80);
+    border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--c-gray-65);
+}

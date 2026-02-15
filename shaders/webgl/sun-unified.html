@@ -1,0 +1,860 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background: #000;
+        }
+        .canvas-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+        }
+    </style>
+</head>
+<body>
+    <div class="canvas-container"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
+<script>
+// Set up scene, camera, renderer
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x000000); // Set background to black
+const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setSize(window.innerWidth, window.innerHeight);
+const canvasContainer = document.querySelector('.canvas-container');
+canvasContainer.appendChild(renderer.domElement);
+
+
+// Create sun group
+const sunGroup = new THREE.Group();
+sunGroup.name = 'sun';
+scene.add(sunGroup);
+
+
+// Simplex noise GLSL code
+const simplexNoise = `
+    vec3 mod289(vec3 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
+    vec4 mod289(vec4 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
+    vec4 permute(vec4 x) { return mod289(((x*34.0)+1.0)*x); }
+    vec4 taylorInvSqrt(vec4 r) { return 1.79284291400159 - 0.85373472095314 * r; }
+
+
+    float snoise(vec3 v) { 
+        const vec2 C = vec2(1.0/6.0, 1.0/3.0);
+        const vec4 D = vec4(0.0, 0.7, 1.0, 2.0);
+
+
+        vec3 i  = floor(v + dot(v, C.yyy));
+        vec3 x0 = v - i + dot(i, C.xxx);
+
+
+        vec3 g = step(x0.yzx, x0.xyz);
+        vec3 l = 1.0 - g;
+        vec3 i1 = min(g.xyz, l.zxy);
+        vec3 i2 = max(g.xyz, l.zxy);
+
+
+        vec3 x1 = x0 - i1 + C.xxx;
+        vec3 x2 = x0 - i2 + C.yyy;
+        vec3 x3 = x0 - D.yyy;
+
+
+        i = mod289(i);
+        vec4 p = permute(permute(permute(
+                 i.z + vec4(0.0, i1.z, i2.z, 1.0))
+               + i.y + vec4(0.0, i1.y, i2.y, 1.0))
+               + i.x + vec4(0.0, i1.x, i2.x, 1.0));
+
+
+        float n_ = 0.142857142857;
+        vec3 ns = n_ * D.wyz - D.xzx;
+
+
+        vec4 j = p - 49.0 * floor(p * ns.z * ns.z);
+
+
+        vec4 x_ = floor(j * ns.z);
+        vec4 y_ = floor(j - 7.0 * x_);
+
+
+        vec4 x = x_ * ns.x + ns.yyyy;
+        vec4 y = y_ * ns.x + ns.yyyy;
+        vec4 h = 1.0 - abs(x) - abs(y);
+
+
+        vec4 b0 = vec4(x.xy, y.xy);
+        vec4 b1 = vec4(x.zw, y.zw);
+
+
+        vec4 s0 = floor(b0)*2.0 + 1.0;
+        vec4 s1 = floor(b1)*2.0 + 1.0;
+        vec4 sh = -step(h, vec4(0.0));
+
+
+        vec4 a0 = b0.xzyw + s0.xzyw*sh.xxyy;
+        vec4 a1 = b1.xzyw + s1.xzyw*sh.zzww;
+
+
+        vec3 p0 = vec3(a0.xy, h.x);
+        vec3 p1 = vec3(a0.zw, h.y);
+        vec3 p2 = vec3(a1.xy, h.z);
+        vec3 p3 = vec3(a1.zw, h.w);
+
+
+        vec4 norm = taylorInvSqrt(vec4(dot(p0,p0), dot(p1,p1), dot(p2,p2), dot(p3,p3)));
+        p0 *= norm.x;
+        p1 *= norm.y;
+        p2 *= norm.z;
+        p3 *= norm.w;
+
+
+        vec4 m = max(0.6 - vec4(dot(x0,x0), dot(x1,x1), dot(x2,x2), dot(x3,x3)), 0.0);
+        m = m * m;
+        return 42.0 * dot(m*m, vec4(dot(p0,x0), dot(p1,x1), dot(p2,x2), dot(p3,x3)));
+    }
+
+
+    float fbm(vec3 p) {
+        float v = 0.0;
+        float a = 0.7;
+        vec3 shift = vec3(100.0);
+        for (int i = 0; i < 6; ++i) {
+            v += a * snoise(p);
+            p = p * 2.0 + shift;
+            a *= 0.7;
+        }
+        return v;
+    }
+
+
+    float fbmDetail(vec3 p) {
+        float v = 0.0;
+        float a = 0.7;
+        vec3 shift = vec3(50.0);
+        for (int i = 0; i < 4; ++i) {
+            v += a * snoise(p);
+            p = p * 3.0 + shift;
+            a *= 0.7;
+        }
+        return v;
+    }
+
+
+    float granularNoise(vec3 p) {
+        return fract(sin(dot(p, vec3(127.1, 311.7, 74.7))) * 43758.5453123);
+    }
+`;
+
+
+// Vertex shader for sun sphere
+const vertexShader = `
+    varying vec2 vUv;
+    varying vec3 vPosition;
+    varying vec3 vNormal;
+    void main() {
+        vUv = uv;
+        vPosition = position;
+        vNormal = normal;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+    }
+`;
+
+
+// Fragment shader for sun sphere
+const fragmentShader = `
+    ${simplexNoise}
+    uniform float time;
+    varying vec2 vUv;
+    varying vec3 vPosition;
+    varying vec3 vNormal;
+
+
+    void main() {
+        vec3 pos = vPosition * 1.5 + time * 0.1;
+
+
+        float n1 = fbm(pos);
+        n1 = n1 * 0.7 + 0.7;
+
+
+        float n2 = fbm(pos + vec3(10.0));
+        n2 = n2 * 0.7 + 0.7;
+
+
+        float baseNoise = (n1 * 0.6 + n2 * 0.4);
+        baseNoise = clamp(baseNoise, 0.0, 1.0);
+
+
+        float detail = fbmDetail(pos * 5.0 + vec3(20.0));
+        detail = detail * 0.9 + 0.9;
+        baseNoise += detail * 0.1;
+        baseNoise = clamp(baseNoise, 0.0, 1.0);
+
+
+        float glowFactor = pow(max(dot(vNormal, normalize(cameraPosition - vPosition)), 0.0), 2.0);
+        vec3 glowColor = vec3(1.0, 0.8, 0.0);
+        vec3 radiantGlow = glowColor * glowFactor * 0.3;
+
+
+        vec3 yellow = vec3(1.0, 1.0, 0.1);
+        vec3 red = vec3(1.0, 0.0, 0.2);
+        vec3 orange = vec3(1.0, 0.6, 0.2);
+
+
+        vec3 color = mix(yellow, orange, baseNoise);
+        color = mix(color, red, detail * 0.2);
+        color += radiantGlow;
+
+
+        gl_FragColor = vec4(color, 1.0);
+    }
+`;
+
+
+// Vertex shader for atmosphere
+const atmosphereVertexShader = `
+    varying vec3 vNormal;
+    varying vec3 vPosition;
+    void main() {
+        vNormal = normalize(normalMatrix * normal);
+        vPosition = position;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+    }
+`;
+
+
+// Fragment shader for atmosphere
+const atmosphereFragmentShader = `
+    uniform vec3 glowColor;
+    uniform float glowIntensity;
+    varying vec3 vNormal;
+    varying vec3 vPosition;
+    void main() {
+        vec3 viewDir = normalize(cameraPosition - vPosition);
+        float rim = 1.0 - max(dot(vNormal, viewDir), 0.0);
+        rim = pow(rim, 0.1); // Softer misty edge
+        float intensity = rim * glowIntensity;
+        gl_FragColor = vec4(glowColor, intensity);
+    }
+`;
+
+
+// Create sun sphere with shader
+const sphereGeometry = new THREE.SphereGeometry(1, 32, 32);
+const shaderMaterial = new THREE.ShaderMaterial({
+    vertexShader: vertexShader,
+    fragmentShader: fragmentShader,
+    uniforms: { time: { value: 0 } },
+});
+const sphere = new THREE.Mesh(sphereGeometry, shaderMaterial);
+sphere.name = 'sunSphere';
+sunGroup.add(sphere);
+
+
+// Function to create a radial spherical atmosphere
+const createAtmosphere = (radius, colorStart, colorEnd, hasGlow = false) => {
+    const atmosphereGeometry = new THREE.SphereGeometry(radius, 32, 32);
+    let atmosphereMaterial;
+
+
+    if (hasGlow) {
+        // Misty red glow for the outermost sphere
+        atmosphereMaterial = new THREE.ShaderMaterial({
+            uniforms: {
+                glowColor: { value: new THREE.Color(colorStart) },
+                glowIntensity: { value: 2 }
+            },
+            vertexShader: `
+                varying vec3 vNormal;
+                void main() {
+                    vNormal = normalize(normalMatrix * normal);
+                    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+                }
+            `,
+            fragmentShader: `
+                uniform vec3 glowColor;
+                uniform float glowIntensity;
+                varying vec3 vNormal;
+                void main() {
+                    float intensity = pow(0.8 - dot(vNormal, vec3(0, 0, 1)), 2.0);
+                    gl_FragColor = vec4(glowColor * intensity * glowIntensity, intensity);
+                }
+            `,
+            side: THREE.BackSide,
+            blending: THREE.AdditiveBlending,
+            transparent: true
+        });
+    } else {
+        // Radial gradient for yellow and orange
+        atmosphereMaterial = new THREE.ShaderMaterial({
+            uniforms: {
+                colorStart: { value: new THREE.Color(colorStart) },
+                colorEnd: { value: new THREE.Color(colorEnd) }
+            },
+            vertexShader: `
+                varying vec3 vPosition;
+                void main() {
+                    vPosition = position;
+                    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+                }
+            `,
+            fragmentShader: `
+                uniform vec3 colorStart;
+                unsigned vec3 colorEnd;
+                varying vec3 vPosition;
+                void main() {
+                    float dist = length(vPosition) / ${radius.toFixed(2)}; // Normalize distance from center
+                    vec3 color = mix(colorStart, colorEnd, dist); // Radial gradient
+                    gl_FragColor = vec4(color, 0.8); // Less transparent
+                }
+            `,
+            side: THREE.BackSide,
+            transparent: true
+        });
+    }
+
+
+    const atmosphere = new THREE.Mesh(atmosphereGeometry, atmosphereMaterial);
+    atmosphere.name = 'atmosphere';
+    scene.add(atmosphere);
+    return atmosphere;
+};
+
+
+// Assuming 1 px ≈ 0.1 units in Three.js for scaling
+const pxToUnits = 0.1;
+const sphereRadius = 1;
+
+
+// Yellow layer
+createAtmosphere(sphereRadius + 0.6 - 6 * pxToUnits, 0xFFFF00, 0xFFFF99, true);
+// Orange layer
+createAtmosphere(sphereRadius + 0.1 + 0.0054 * pxToUnits, 0xFFA500, 0xFF4500, true);
+// Red layer
+createAtmosphere(sphereRadius + 0.7 * pxToUnits, 0xFF0000, 0xCC0000, true);
+
+
+// Create gaseous layers
+function createGaseousMaterial(color, speed, direction, opacity, cloudScale, cloudSharpness, layerThickness) {
+    return new THREE.ShaderMaterial({
+        uniforms: {
+            time: { value: 0.0 },
+            color: { value: new THREE.Color(color) },
+            speed: { value: speed },
+            opacity: { value: opacity },
+            cloudScale: { value: cloudScale },
+            cloudSharpness: { value: cloudSharpness },
+            layerThickness: { value: layerThickness },
+        },
+        vertexShader: `
+            varying vec3 vNormal;
+            varying vec3 vPosition;
+            void main() {
+                vNormal = normal;
+                vPosition = position;
+                gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+            }
+        `,
+        fragmentShader: `
+            uniform float time;
+            uniform vec3 color;
+            uniform float speed;
+            uniform float opacity;
+            uniform float cloudScale;
+            uniform float cloudSharpness;
+            uniform float layerThickness;
+            varying vec3 vNormal;
+            varying vec3 vPosition;
+            ${simplexNoise}
+            void main() {
+                vec3 pos = vPosition * cloudScale + time * speed;
+                pos *= vec3(1.0, 1.0, layerThickness);
+                float n1 = snoise(pos);
+                float n2 = snoise(pos * 9.0 + vec3(10));
+                float n = 0.6 * n1 + 0.3 * n2;
+                float cloud = smoothstep(0.4, 0.4 + cloudSharpness, n);
+                float alpha = cloud * opacity;
+                gl_FragColor = vec4(color, alpha);
+            }
+        `,
+        transparent: true,
+        side: THREE.DoubleSide,
+    });
+}
+
+
+const numLayers = 2;
+const colors = [0xffa500, 0xff0000];
+const baseSpeed = 0.1;
+const gaseousLayers = [
+    {
+        radius: sphereRadius + 0.020,
+        color: colors[0],
+        speed: baseSpeed,
+        direction: 1,
+        opacity: 2,
+        cloudScale: 1.0,
+        cloudSharpness: 0.4,
+        layerThickness: 1.0,
+    },
+    {
+        radius: sphereRadius + 0.021,
+        color: colors[1],
+        speed: baseSpeed + 0.05,
+        direction: -1,
+        opacity: 22,
+        cloudScale: 1.0,
+        cloudSharpness: 22,
+        layerThickness: 1.5,
+    },
+];
+
+
+const gaseousMeshes = gaseousLayers.map((layer, index) => {
+    const material = createGaseousMaterial(
+        layer.color,
+        layer.speed * layer.direction,
+        layer.direction,
+        layer.opacity,
+        layer.cloudScale,
+        layer.cloudSharpness,
+        layer.layerThickness
+    );
+    const mesh = new THREE.Mesh(
+        new THREE.SphereGeometry(layer.radius, 64, 64),
+        material
+    );
+    mesh.name = `gaseousLayer${index}`;
+    sunGroup.add(mesh);
+    return mesh;
+});
+
+
+// Create stars
+const starCount = 100;
+const starGeometry = new THREE.BufferGeometry();
+const starPositions = new Float32Array(starCount * 3);
+const starOrbitParams = [];
+const maxRadius = 5;
+const minRadius = 4;
+
+
+for (let i = 0; i < starCount; i++) {
+    const radius = minRadius + Math.random() * (maxRadius - minRadius);
+    const angle = Math.random() * 2 * Math.PI;
+
+
+    const x = radius * Math.cos(angle);
+    const y = radius * Math.sin(angle);
+    const z = -radius - 1;
+
+
+    starPositions[i * 3] = x;
+    starPositions[i * 3 + 1] = y;
+    starPositions[i * 3 + 2] = z;
+
+
+    starOrbitParams.push({
+        radius: radius,
+        angle: angle,
+        speed: (Math.random() * 0.01 + 0.005) / 20 * (Math.random() > 0.5 ? 1 : -1),
+        axis: new THREE.Vector3(
+            Math.random() - 0.5,
+            Math.random() - 0.5,
+            0
+        ).normalize()
+    });
+}
+
+
+starGeometry.setAttribute('position', new THREE.BufferAttribute(starPositions, 3));
+const starMaterial = new THREE.PointsMaterial({
+    color: 0xffffff, // Changed to white stars
+    size: 0.04,
+    transparent: true,
+    opacity: 0.8
+});
+const stars = new THREE.Points(starGeometry, starMaterial);
+stars.name = 'stars';
+scene.add(stars);
+
+
+const unboundFlareCount = 30; // Unbound, spaghetti-like flares
+const boundFlareCount = 20;   // Regular bound arcs
+const totalFlareCount = unboundFlareCount + boundFlareCount;
+
+
+const startPositions = [];
+const endPositions = [];
+const arcDirections = [];
+const lifetimes = new Float32Array(totalFlareCount);
+const times = new Float32Array(totalFlareCount);
+const delays = new Float32Array(totalFlareCount);
+const wavePhases = [];
+const flareTypes = [];
+
+
+// Controllable parameters
+const fadeFactor = 0.1;
+const arcLengthBound = 1.3;
+const arcLengthUnbound = 0.1; // Very small arc length for unbound flares
+const arcHeightBound = 0.4;
+const arcHeightUnbound = 0.2; // Very small arc height for unbound flares
+
+
+// Evenly distribute unbound flares across the sphere using Fibonacci sphere algorithm
+const goldenRatio = (1 + Math.sqrt(5)) / 2;
+for (let i = 0; i < totalFlareCount; i++) {
+    const isUnbound = i < unboundFlareCount;
+    let thetaStart, phiStart;
+
+
+    if (isUnbound) {
+        // Fibonacci sphere for even distribution of unbound flares
+        const idx = i + 0.5;
+        phiStart = Math.acos(1 - 2 * idx / unboundFlareCount);
+        thetaStart = 2 * Math.PI * idx / goldenRatio;
+    } else {
+        // Random distribution for bound flares
+        thetaStart = Math.random() * Math.PI * 2;
+        phiStart = Math.acos(2 * Math.random() - 1);
+    }
+
+
+    const radius = 0.9;
+    const startPos = new THREE.Vector3(
+        radius * Math.sin(phiStart) * Math.cos(thetaStart),
+        radius * Math.sin(phiStart) * Math.sin(thetaStart),
+        radius * Math.cos(phiStart)
+    );
+    startPositions.push(startPos);
+
+
+    // End position
+    const arcLength = isUnbound ? arcLengthUnbound : arcLengthBound;
+    const thetaEnd = thetaStart + (Math.random() - 0.5) * Math.PI * arcLength;
+    const phiEnd = phiStart + (Math.random() - 0.5) * Math.PI * arcLength;
+    const endRadius = isUnbound ? 1.1 : 0.9; // Smaller extension for unbound flares due to small size
+    const endPos = new THREE.Vector3(
+        endRadius * Math.sin(phiEnd) * Math.cos(thetaEnd),
+        endRadius * Math.sin(phiEnd) * Math.sin(thetaEnd),
+        endRadius * Math.cos(phiEnd)
+    );
+    endPositions.push(endPos);
+
+
+    const normal = startPos.clone().normalize();
+    const tangent = startPos.clone().cross(endPos).normalize();
+    arcDirections.push(tangent);
+
+
+    lifetimes[i] = isUnbound ? 5 : 3; // Longer lifetime for unbound flares
+    times[i] = Math.random() * lifetimes[i];
+    delays[i] = Math.random() * 2;
+
+
+    const phases = [];
+    for (let l = 0; l < 5; l++) {
+        phases.push(Math.random() * Math.PI * 2);
+    }
+    wavePhases.push(phases);
+    flareTypes.push(isUnbound ? 'unbound' : 'bound');
+}
+
+
+// Create flares
+const flareTubes = { unbound: [], bound: [] };
+const tubeGeometries = { unbound: [], bound: [] };
+const tubeMaterials = { unbound: [], bound: [] };
+const shades = [
+    0xff4500, // Bright orange (left)
+    0xff4500, // Bright orange
+    0xffff00, // Yellow (middle)
+    0xffff00, // Yellow
+    0xff4500  // Bright orange (right)
+];
+
+
+// Custom triangular cross-section with very narrow tips
+const triangularShape = new THREE.Shape();
+triangularShape.moveTo(0, 0.002); // Top vertex of triangle (smaller base)
+triangularShape.lineTo(-0.001, -0.001); // Bottom left vertex (narrower)
+triangularShape.lineTo(0.001, -0.001); // Bottom right vertex (narrower)
+triangularShape.lineTo(0, 0.002); // Close the triangle
+
+
+['unbound', 'bound'].forEach(type => {
+    const count = type === 'unbound' ? unboundFlareCount : boundFlareCount;
+    const startIdx = type === 'unbound' ? 0 : unboundFlareCount;
+
+
+    for (let i = startIdx; i < startIdx + count; i++) {
+        const flareGroup = new THREE.Group();
+        flareGroup.name = `${type}FlareGroup${i}`;
+        const startPos = startPositions[i];
+        const endPos = endPositions[i];
+        const tangent = arcDirections[i];
+        const normal = startPos.clone().normalize();
+        const arcHeight = type === 'unbound' ? arcHeightUnbound : arcHeightBound;
+
+
+        for (let l = 0; l < 5; l++) {
+            const tubePoints = [];
+            const segments = 20;
+            const controlPoint = startPos.clone().lerp(endPos, 0.5).add(normal.clone().multiplyScalar(arcHeight));
+
+
+            for (let j = 0; j <= segments; j++) {
+                const t = j / segments;
+                const p0 = startPos.clone().lerp(controlPoint, t);
+                const p1 = controlPoint.clone().lerp(endPos, t);
+                const pos = p0.lerp(p1, t);
+                const offset = (l - 2) * 0.015; // Smaller offset for smaller flares
+                const tangentOffset = tangent.clone().multiplyScalar(offset);
+                const taper = type === 'unbound' ? (1 - t * 1.5) : (t < 0.5 ? Math.sin(t * Math.PI * 2) : 1); // Stronger taper for unbound
+                const taperedOffset = tangentOffset.multiplyScalar(taper);
+
+
+                const waveAmplitude = type === 'unbound' ? 0.03 : 0.05; // Smaller amplitude for small unbound flares
+                const waveFrequency = 4;
+                const waveOffset = normal.clone().multiplyScalar(
+                    Math.sin(t * Math.PI * waveFrequency + wavePhases[i][l]) * waveAmplitude * (type === 'unbound' ? (1 - t) : 1) // More wave at free end
+                );
+
+
+                tubePoints.push(pos.add(taperedOffset).add(waveOffset));
+            }
+
+
+            const curve = new THREE.CatmullRomCurve3(tubePoints);
+            const extrudeSettings = {
+                steps: 20,
+                bevelEnabled: false,
+                extrudePath: curve
+            };
+            const tubeGeometry = new THREE.ExtrudeGeometry(triangularShape, extrudeSettings);
+            const tubeMaterial = new THREE.MeshBasicMaterial({
+                color: shades[l],
+                transparent: true,
+                opacity: fadeFactor * 0.9,
+                side: THREE.DoubleSide,
+                blending: THREE.AdditiveBlending
+            });
+            const tube = new THREE.Mesh(tubeGeometry, tubeMaterial);
+            flareGroup.add(tube);
+            tubeGeometries[type].push(tubeGeometry);
+            tubeMaterials[type].push(tubeMaterial);
+        }
+
+
+        sunGroup.add(flareGroup);
+        flareTubes[type].push(flareGroup);
+    }
+});
+
+
+// Position camera
+camera.position.z = 2;
+
+
+// Animation loop
+let time = 0;
+function animate() {
+    requestAnimationFrame(animate);
+    time += 0.01;
+
+
+    // Update star colors - always white now
+    starMaterial.color.setHex(0xffffff);
+
+
+    // Update flares
+    for (let i = 0; i < totalFlareCount; i++) {
+        const type = flareTypes[i] === 'unbound' ? 'unbound' : 'bound';
+        times[i] += 0.01;
+        let t = times[i] / (lifetimes[i] + delays[i]);
+        let fade = t < 0.5 ? t * 2 : 1 - (t - 0.5) * 2;
+
+
+        if (times[i] >= lifetimes[i] + delays[i]) {
+            times[i] = 0;
+            delays[i] = Math.random() * 2;
+
+
+            let thetaStart, phiStart;
+            if (type === 'unbound') {
+                const idx = i + 0.5;
+                phiStart = Math.acos(1 - 2 * idx / unboundFlareCount);
+                thetaStart = 2 * Math.PI * idx / goldenRatio;
+            } else {
+                thetaStart = Math.random() * Math.PI * 2;
+                phiStart = Math.acos(2 * Math.random() - 1);
+            }
+
+
+            const radius = 0.9;
+            const startPos = new THREE.Vector3(
+                radius * Math.sin(phiStart) * Math.cos(thetaStart),
+                radius * Math.sin(phiStart) * Math.sin(thetaStart),
+                radius * Math.cos(phiStart)
+            );
+            startPositions[i] = startPos;
+
+
+            const arcLength = type === 'unbound' ? arcLengthUnbound : arcLengthBound;
+            const endRadius = type === 'unbound' ? 1.1 : 0.9;
+            const thetaEnd = thetaStart + (Math.random() - 0.5) * Math.PI * arcLength;
+            const phiEnd = phiStart + (Math.random() - 0.5) * Math.PI * arcLength;
+            const endPos = new THREE.Vector3(
+                endRadius * Math.sin(phiEnd) * Math.cos(thetaEnd),
+                endRadius * Math.sin(phiEnd) * Math.sin(thetaEnd),
+                endRadius * Math.cos(phiEnd)
+            );
+            endPositions[i] = endPos;
+
+
+            const normal = startPos.clone().normalize();
+            const tangent = startPos.clone().cross(endPos).normalize();
+            arcDirections[i] = tangent;
+            t = 0;
+            fade = 0;
+
+
+            for (let l = 0; l < 5; l++) {
+                wavePhases[i][l] = Math.random() * Math.PI * 2;
+            }
+        }
+
+
+        const flareGroup = flareTubes[type][type === 'unbound' ? i : i - unboundFlareCount];
+        const startPos = startPositions[i];
+        const endPos = endPositions[i];
+        const tangent = arcDirections[i];
+        const normal = startPos.clone().normalize();
+        const arcHeight = type === 'unbound' ? arcHeightUnbound : arcHeightBound;
+
+
+        for (let l = 0; l < 5; l++) {
+            const tubePoints = [];
+            const segments = 20;
+            const controlPoint = startPos.clone().lerp(endPos, 0.5).add(normal.clone().multiplyScalar(arcHeight));
+
+
+            for (let j = 0; j <= segments; j++) {
+                const s = j / segments;
+                const p0 = startPos.clone().lerp(controlPoint, s);
+                const p1 = controlPoint.clone().lerp(endPos, s);
+                const pos = p0.lerp(p1, s);
+                const offset = (l - 2) * 0.015;
+                const tangentOffset = tangent.clone().multiplyScalar(offset);
+                const taper = type === 'unbound' ? (1 - s * 1.5) : (s < 0.5 ? Math.sin(s * Math.PI * 2) : 1);
+                const taperedOffset = tangentOffset.multiplyScalar(taper);
+
+
+                const waveAmplitude = type === 'unbound' ? 0.03 : 0.05;
+                const waveFrequency = 4;
+                const waveSpeed = 3;
+                const waveOffset = normal.clone().multiplyScalar(
+                    Math.sin(s * Math.PI * waveFrequency + time * waveSpeed + wavePhases[i][l]) * waveAmplitude * (type === 'unbound' ? (1 - s) : 1)
+                );
+
+
+                tubePoints.push(pos.add(taperedOffset).add(waveOffset));
+            }
+
+
+            const curve = new THREE.CatmullRomCurve3(tubePoints);
+            const extrudeSettings = {
+                steps: 20,
+                bevelEnabled: false,
+                extrudePath: curve
+            };
+            const newTubeGeometry = new THREE.ExtrudeGeometry(triangularShape, extrudeSettings);
+            const tube = flareGroup.children[l];
+            tube.geometry.dispose();
+            tube.geometry = newTubeGeometry;
+            const idx = (type === 'unbound' ? i : i - unboundFlareCount) * 5 + l;
+            tubeGeometries[type][idx] = newTubeGeometry;
+            tubeMaterials[type][idx].opacity = fade * 0.05;
+        }
+    }
+
+
+    // Update scene objects
+    scene.traverse((object) => {
+        if (object.isMesh || object.isPoints) {
+            if (object.name === 'sunSphere') {
+                object.rotation.y += 0.0004;
+                object.material.uniforms.time.value = time;
+            } else if (object.name === 'atmosphere') {
+                object.rotation.y += 0.0005;
+            } else if (object.name.startsWith('gaseousLayer')) {
+                object.material.uniforms.time.value = time;
+            } else if (object.name === 'stars') {
+                const positions = object.geometry.attributes.position.array;
+                for (let i = 0; i < starCount; i++) {
+                    const params = starOrbitParams[i];
+                    params.angle += params.speed;
+
+
+                    const radius = params.radius;
+                    const angle = params.angle;
+                    let pos = new THREE.Vector3(
+                        radius * Math.cos(angle),
+                        radius * Math.sin(angle),
+                        -radius - 1
+                    );
+
+
+                    const quaternion = new THREE.Quaternion().setFromAxisAngle(
+                        params.axis,
+                        Math.PI / 8
+                    );
+                    pos.applyQuaternion(quaternion);
+
+
+                    pos.z = Math.min(pos.z, -1);
+
+
+                    positions[i * 3] = pos.x;
+                    positions[i * 3 + 1] = pos.y;
+                    positions[i * 3 + 2] = pos.z;
+                }
+                object.geometry.attributes.position.needsUpdate = true;
+            }
+        }
+    });
+
+
+    renderer.render(scene, camera);
+
+
+    if (!canvasContainer.classList.contains('loaded')) {
+        canvasContainer.classList.add('loaded');
+    }
+}
+animate();
+
+
+// Handle window resize
+function onWindowResize() {
+    const width = window.innerWidth;
+    const height = window.innerHeight;
+    camera.aspect = width / height;
+    camera.updateProjectionMatrix();
+    renderer.setSize(width, height);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+}
+window.addEventListener('resize', onWindowResize);
+</script>
+</body>
+</html>

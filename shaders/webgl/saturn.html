@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Procedural Saturn - Noah Herwede</title>
+    <style>
+        body, html { margin: 0; padding: 0; overflow: hidden; background: #000; }
+        canvas { display: block; width: 100vw; height: 100vh; }
+    </style>
+</head>
+<body>
+    <canvas id="glcanvas"></canvas>
+
+    <script id="vs" type="x-shader/x-vertex">
+        attribute vec2 position;
+        void main() {
+            gl_Position = vec4(position, 0.0, 1.0);
+        }
+    </script>
+
+    <script id="fs" type="x-shader/x-fragment">
+        precision highp float;
+
+        uniform vec3 iResolution;
+        uniform float iTime;
+
+        // =======================================================================================//
+        // PROCEDURAL SATURN - Noah Herwede
+        // Features: Detailed Rings, Banded Atmosphere, Ice Particles
+        // =======================================================================================//
+
+        // --- SETTINGS ---
+        #define PLANET_RADIUS 2.0
+        #define RING_INNER 2.5
+        #define RING_OUTER 5.0
+        #define ROTATION_SPEED 0.08
+
+        // --- PALETTE ---
+        #define COL_ZONE      vec3(0.95, 0.90, 0.82)
+        #define COL_BELT      vec3(0.68, 0.42, 0.28)
+        #define COL_DEEP      vec3(0.38, 0.22, 0.18)
+        #define COL_RING      vec3(0.65, 0.60, 0.55)
+        #define COL_ATMOS     vec3(0.85, 0.65, 0.35)
+
+        // --- LIGHTING ---
+        #define SUN_DIR normalize(vec3(0.6, 0.35, 0.8))
+        #define SUN_INTENSITY 3.8
+        #define AMBIENT 0.02
+
+        // --- CAMERA (adjusted to see rings while keeping planet similarly sized) ---
+        #define CAM_POS vec3(0.0, 4.0, 11.0)
+        #define CAM_TARGET vec3(0.0, 0.0, 0.0)
+
+        mat3 rotateY(float angle) {
+            float c = cos(angle), s = sin(angle);
+            return mat3(vec3(c, 0, s), vec3(0, 1, 0), vec3(-s, 0, c));
+        }
+
+        float hash(vec3 p) {
+            p = fract(p * vec3(0.1031, 0.1030, 0.0973));
+            p += dot(p, p.yxz + 33.33);
+            return fract((p.x + p.y) * p.z);
+        }
+
+        float noise(in vec3 x) {
+            vec3 i = floor(x);
+            vec3 f = fract(x);
+            f = f * f * f * (f * (f * 6.0 - 15.0) + 10.0);
+
+            return mix(mix(mix(hash(i + vec3(0,0,0)), hash(i + vec3(1,0,0)), f.x),
+                           mix(hash(i + vec3(0,1,0)), hash(i + vec3(1,1,0)), f.x), f.y),
+                       mix(mix(hash(i + vec3(0,0,1)), hash(i + vec3(1,0,1)), f.x),
+                           mix(hash(i + vec3(0,1,1)), hash(i + vec3(1,1,1)), f.x), f.y), f.z);
+        }
+
+        float fbm(vec3 p, int octaves) {
+            float amp = 0.5;
+            float freq = 1.0;
+            float t = 0.0;
+            float norm = 0.0;
+            for(int i = 0; i < 12; ++i) {
+                if (i >= octaves) break;
+                t += noise(p * freq) * amp;
+                norm += amp;
+                amp *= 0.5;
+                freq *= 2.0;
+                p = p.yzx * 1.05 + vec3(0.1, -0.15, 0.05) * t;
+            }
+            return t / norm;
+        }
+
+        vec3 getCloudColor(vec3 p) {
+            p *= rotateY(iTime * ROTATION_SPEED);
+
+            float lat = p.y;
+            float lon = atan(p.z, p.x);
+
+            float wind = sin(lat * 10.0) * 0.5 + sin(lat * 4.0) * 0.3 + sin(lat * 2.0) * 0.2;
+            float windNoise = noise(vec3(lat * 6.0, lon * 4.0, iTime * 0.04)) * 0.3;
+            wind += windNoise;
+            p.x += wind * 0.4;
+
+            float baseCloud = fbm(p * vec3(0.6, 3.0, 0.6), 5);
+            float mediumDetail = fbm(p * vec3(1.2, 6.0, 1.2), 4) * 0.4;
+            float pattern = baseCloud + mediumDetail;
+
+            vec3 color = mix(COL_DEEP, COL_BELT, smoothstep(0.3, 0.6, pattern));
+            color = mix(color, COL_ZONE, smoothstep(0.55, 0.85, pattern));
+
+            float bands = smoothstep(0.4, 0.6, sin(lat * 12.0 + pattern * 2.0));
+            color = mix(color, COL_BELT * 0.7, bands * 0.25);
+
+            return color;
+        }
+
+        vec3 baseColor(vec3 n) {
+            vec3 p = n * PLANET_RADIUS;
+            return getCloudColor(p);
+        }
+
+        float getRingDensity(float dist) {
+            if (dist < RING_INNER || dist > RING_OUTER) return 0.0;
+
+            float t = (dist - RING_INNER) / (RING_OUTER - RING_INNER);
+
+            float mainRing = smoothstep(0.0, 0.1, t) * smoothstep(1.0, 0.85, t);
+
+            float gap1 = smoothstep(0.28, 0.30, t) * smoothstep(0.35, 0.33, t);
+            float gap2 = smoothstep(0.55, 0.57, t) * smoothstep(0.62, 0.60, t);
+            mainRing *= (1.0 - gap1 * 0.9) * (1.0 - gap2 * 0.85);
+
+            float detail = noise(vec3(dist * 50.0, 0.0, 0.0)) * 0.3 + 0.7;
+            mainRing *= detail;
+
+            return mainRing * 0.9;
+        }
+
+        vec3 getRingColor(float dist) {
+            float t = (dist - RING_INNER) / (RING_OUTER - RING_INNER);
+
+            vec3 innerColor = vec3(0.75, 0.70, 0.65);
+            vec3 midColor = vec3(0.65, 0.60, 0.55);
+            vec3 outerColor = vec3(0.55, 0.52, 0.50);
+
+            vec3 color = mix(innerColor, midColor, smoothstep(0.0, 0.5, t));
+            color = mix(color, outerColor, smoothstep(0.5, 1.0, t));
+
+            return color;
+        }
+
+        float raySphere(vec3 ro, vec3 rd, vec3 ce, float ra) {
+            vec3 oc = ro - ce;
+            float b = dot(oc, rd);
+            float c = dot(oc, oc) - ra * ra;
+            float h = b * b - c;
+            if(h < 0.0) return -1.0;
+            return -b - sqrt(h);
+        }
+
+        float rayRingPlane(vec3 ro, vec3 rd) {
+            if (abs(rd.y) < 0.0001) return -1.0;
+            return -ro.y / rd.y;
+        }
+
+        void mainImage(out vec4 fragColor, in vec2 fragCoord) {
+            vec2 uv = (fragCoord - 0.5 * iResolution.xy) / iResolution.y;
+
+            vec3 ro = CAM_POS;
+            vec3 ta = CAM_TARGET;
+
+            vec3 ww = normalize(ta - ro);
+            vec3 uu = normalize(cross(ww, vec3(0.0, 1.0, 0.0)));
+            vec3 vv = cross(uu, ww);
+            vec3 rd = normalize(uv.x * uu + uv.y * vv + 1.8 * ww);
+
+            vec3 col = vec3(0.0);
+
+            // Stars
+            float star = step(0.998, hash(rd * 150.0));
+            col += star * 0.6;
+
+            float tPlanet = raySphere(ro, rd, vec3(0.0), PLANET_RADIUS);
+            float tRing = rayRingPlane(ro, rd);
+
+            // Planet
+            if (tPlanet > 0.0) {
+                vec3 pos = ro + tPlanet * rd;
+                vec3 normal = normalize(pos);
+
+                vec3 cloudCol = getCloudColor(pos);
+
+                float NdotL = max(dot(normal, SUN_DIR), 0.0);
+                float terminator = smoothstep(-0.15, 0.2, dot(normal, SUN_DIR));
+
+                vec3 planetCol = cloudCol * (AMBIENT + SUN_INTENSITY * NdotL * terminator);
+
+                float fresnel = pow(1.0 - max(dot(normal, -rd), 0.0), 3.5);
+                planetCol += COL_ATMOS * fresnel * 0.4;
+
+                col = planetCol;
+            }
+
+            // Ring
+            if (tRing > 0.0) {
+                vec3 pRing = ro + tRing * rd;
+                float dist = length(pRing.xz);
+
+                if (dist >= RING_INNER && dist <= RING_OUTER) {
+                    float density = getRingDensity(dist);
+
+                    if (density > 0.0) {
+                        // Shadow from planet
+                        float planetShadow = 1.0;
+                        if (length(pRing) < PLANET_RADIUS * 1.2) {
+                            vec3 toSun = SUN_DIR;
+                            float shadowCheck = raySphere(pRing, toSun, vec3(0.0), PLANET_RADIUS);
+                            if (shadowCheck > 0.0) planetShadow = 0.15;
+                        }
+
+                        vec3 ringBaseCol = getRingColor(dist);
+
+                        float lightDotView = dot(normalize(SUN_DIR), normalize(rd));
+                        float scattering = 0.6 + 0.4 * pow(max(-lightDotView, 0.0), 2.0);
+
+                        vec3 ringCol = ringBaseCol * density * SUN_INTENSITY * planetShadow * scattering;
+
+                        // Sparkle
+                        float sparkle = noise(vec3(pRing.xz * 80.0, iTime * 1.5));
+                        sparkle = smoothstep(0.92, 0.98, sparkle) * 0.3;
+                        ringCol += vec3(1.0, 0.98, 0.95) * sparkle * planetShadow;
+
+                        // Depth sorting
+                        if (tPlanet > 0.0 && tPlanet < tRing) {
+                            // Planet in front - keep planet color
+                        } else {
+                            float alpha = clamp(density * 0.85, 0.0, 1.0);
+                            col = mix(col, ringCol, alpha);
+                        }
+                    }
+                }
+            }
+
+            // Atmosphere glow
+            if (tPlanet < 0.0) {
+                float distToCenter = length(cross(rd, -ro));
+                float glow = exp(-(distToCenter - PLANET_RADIUS) * 5.0) * 0.4;
+                col += COL_ATMOS * glow;
+            }
+
+            // Post processing
+            col = col * 0.7;
+            float aa = 2.51, bb = 0.03, cc = 2.43, dd = 0.59, ee = 0.14;
+            col = clamp((col*(aa*col+bb))/(col*(cc*col+dd)+ee), 0.0, 1.0);
+            col = pow(col, vec3(1.0/2.2));
+
+            // Vignette
+            col *= 1.0 - 0.3 * dot(uv, uv);
+
+            fragColor = vec4(col, 1.0);
+        }
+
+        void main() {
+            mainImage(gl_FragColor, gl_FragCoord.xy);
+        }
+    </script>
+
+    <script>
+        const canvas = document.getElementById('glcanvas');
+        const gl = canvas.getContext('webgl');
+
+        if (!gl) { alert('WebGL not supported'); }
+
+        function createShader(gl, type, source) {
+            const shader = gl.createShader(type);
+            gl.shaderSource(shader, source);
+            gl.compileShader(shader);
+            if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+                console.error(gl.getShaderInfoLog(shader));
+                gl.deleteShader(shader);
+                return null;
+            }
+            return shader;
+        }
+
+        const vsSource = document.getElementById('vs').text;
+        const fsSource = document.getElementById('fs').text;
+
+        const vertexShader = createShader(gl, gl.VERTEX_SHADER, vsSource);
+        const fragmentShader = createShader(gl, gl.FRAGMENT_SHADER, fsSource);
+
+        const program = gl.createProgram();
+        gl.attachShader(program, vertexShader);
+        gl.attachShader(program, fragmentShader);
+        gl.linkProgram(program);
+
+        if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+            console.error(gl.getProgramInfoLog(program));
+        }
+
+        const positionBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
+            -1, -1, 1, -1, -1, 1, -1, 1, 1, -1, 1, 1,
+        ]), gl.STATIC_DRAW);
+
+        const positionLocation = gl.getAttribLocation(program, "position");
+        gl.enableVertexAttribArray(positionLocation);
+        gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0);
+
+        gl.useProgram(program);
+
+        const timeLocation = gl.getUniformLocation(program, "iTime");
+        const resolutionLocation = gl.getUniformLocation(program, "iResolution");
+
+        function resize() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            gl.viewport(0, 0, canvas.width, canvas.height);
+            gl.uniform3f(resolutionLocation, canvas.width, canvas.height, 1.0);
+        }
+
+        window.addEventListener('resize', resize);
+        resize();
+
+        function render(time) {
+            gl.uniform1f(timeLocation, time * 0.001);
+            gl.drawArrays(gl.TRIANGLES, 0, 6);
+            requestAnimationFrame(render);
+        }
+
+        requestAnimationFrame(render);
+    </script>
+</body>
+</html>

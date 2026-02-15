@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>COSMOS LABORATORY | Simulation</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="../css/cosmos-design-system.css?v=20260214-cache11">
+    <link rel="stylesheet" href="../css/cosmos-simulation.css?v=20260215-cache27">
+</head>
+<body>
+    <div id="canvas-container"></div>
+    <span class="sim-frame-corner corner-tl" aria-hidden="true"></span>
+    <span class="sim-frame-corner corner-tr" aria-hidden="true"></span>
+    <span class="sim-frame-corner corner-bl" aria-hidden="true"></span>
+    <span class="sim-frame-corner corner-br" aria-hidden="true"></span>
+
+    <div class="sim-floating-brand">
+        <div class="ci-brand">
+            <div class="ci-brand__logo"></div>
+            <span class="ci-brand__name">Cosmos Laboratory</span>
+        </div>
+    </div>
+
+    <div id="sim-neon-readouts" aria-label="Simulation readouts">
+        <div class="sim-neon-pill">
+            <span class="label">FPS</span>
+            <span id="fps-counter" class="value">60</span>
+        </div>
+        <div class="sim-neon-pill sim-neon-pill--time">
+            <span class="label">TIME</span>
+            <span id="sim-time" class="value">+0000d 00:00:00</span>
+        </div>
+        <div class="sim-neon-pill">
+            <span class="label">OBJECTS</span>
+            <span id="object-count" class="value">0</span>
+        </div>
+    </div>
+
+    <div id="sim-utility-actions" aria-label="Simulation quick actions">
+        <div class="sim-action-bar" role="toolbar" aria-label="Simulation action bar">
+            <button id="btn-play-pause-panel" class="sim-action-btn sim-action-btn--state" title="Pause / Play simulation" aria-label="Pause simulation">
+                <span id="panel-play-icon" class="sim-action-icon">II</span>
+                <span id="panel-play-label" class="sim-action-label">Pause</span>
+            </button>
+            <button id="btn-speed-down" class="sim-action-btn sim-action-btn--compact" title="Decrease simulation speed" aria-label="Decrease speed">
+                <span class="sim-action-icon">-</span>
+                <span class="sim-action-label">Slow</span>
+            </button>
+            <button id="btn-speed-up" class="sim-action-btn sim-action-btn--compact" title="Increase simulation speed" aria-label="Increase speed">
+                <span class="sim-action-icon">+</span>
+                <span class="sim-action-label">Fast</span>
+            </button>
+            <button id="btn-speed-reset" class="sim-action-btn sim-action-btn--speed" title="Reset to 4 d/s">
+                <span class="sim-action-key">SPD</span>
+                <span id="action-speed-value" class="sim-action-value">4.0 d/s</span>
+            </button>
+            <button id="btn-screenshot-panel" class="sim-action-btn" title="Take screenshot" aria-label="Take screenshot">
+                <span class="sim-action-icon">[]</span>
+                <span class="sim-action-label">Shot</span>
+            </button>
+            <button id="btn-reset-camera-panel" class="sim-action-btn" title="Reset camera" aria-label="Reset camera">
+                <span class="sim-action-icon">R</span>
+                <span class="sim-action-label">Reset</span>
+            </button>
+            <button id="btn-compare-panel" class="sim-action-btn" title="Compare planets" aria-label="Compare planets">
+                <span class="sim-action-icon">=</span>
+                <span class="sim-action-label">Compare</span>
+            </button>
+            <button id="btn-share-scene-panel" class="sim-action-btn" title="Share scene URL" aria-label="Share URL">
+                <span class="sim-action-icon">URL</span>
+                <span class="sim-action-label">Share</span>
+            </button>
+            <button id="btn-photo-mode-panel" class="sim-action-btn" title="Photo mode" aria-label="Enable photo mode">
+                <span class="sim-action-icon">P</span>
+                <span id="panel-photo-label" class="sim-action-label">Photo</span>
+            </button>
+            <button id="panel-toggle" class="sim-action-btn sim-action-btn--params" title="Open parameters" aria-label="Open parameters">
+                <span class="sim-action-icon">*</span>
+                <span class="sim-action-label">Params</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- HUD Overlay -->
+    <div id="hud-root">
+        <div class="bridge-grid"></div>
+
+        <header id="main-header">
+            <div class="header-readouts">
+                <div class="readout-pill">
+                    <span class="label">FPS</span>
+                    <span class="value">-</span>
+                </div>
+            </div>
+        </header>
+
+        <div class="hud-stage">
+            <div class="hud-frame-outer" aria-hidden="true">
+                <span class="hud-frame-corner tl"></span>
+                <span class="hud-frame-corner tr"></span>
+                <span class="hud-frame-corner bl"></span>
+                <span class="hud-frame-corner br"></span>
+            </div>
+            <div class="hud-frame-inner" aria-hidden="true"></div>
+
+            <!-- Bottom Bar -->
+            <div id="ci-bottom-bar">
+                <div class="ci-diag-readouts">
+                    <div class="ci-diag-item">
+                        <span class="ci-label">FPS</span>
+                        <span class="ci-readout" id="ci-diag-fps">60</span>
+                    </div>
+                    <div class="ci-diag-item">
+                        <span class="ci-label">Frame</span>
+                        <span class="ci-readout" id="ci-diag-frametime">16.7ms</span>
+                    </div>
+                    <div class="ci-diag-item">
+                        <span class="ci-label">Scale</span>
+                        <span class="ci-readout" id="ci-diag-scale">100%</span>
+                    </div>
+                    <div class="ci-diag-item">
+                        <span class="ci-label">Objects</span>
+                        <span class="ci-readout" id="ci-diag-objects">0</span>
+                    </div>
+                    <div class="ci-perf-monitor">
+                        <canvas id="ci-perf-graph" width="240" height="56"></canvas>
+                    </div>
+                </div>
+
+                <div class="console-shell">
+                    <div class="console-module console-left">
+                        <div class="dial-row">
+                            <div id="gauge-speed" class="dial">
+                                <span class="needle"></span>
+                                <span class="dial-name">Speed</span>
+                            </div>
+                            <div id="gauge-fuel" class="dial">
+                                <span class="needle"></span>
+                                <span class="dial-name">Fuel</span>
+                            </div>
+                        </div>
+                        <div class="console-mini">
+                            <button id="btn-reset-camera2" type="button" aria-label="Reset camera"></button>
+                            <button id="btn-toggle-orbits2" type="button" aria-label="Toggle orbits"></button>
+                            <button id="btn-toggle-labels2" type="button" aria-label="Toggle labels"></button>
+                            <button id="btn-toggle-asteroids2" type="button" aria-label="Toggle asteroids"></button>
+                            <button id="btn-screenshot2" type="button" aria-label="Screenshot"></button>
+                            <button id="btn-share-scene2" type="button" aria-label="Share scene"></button>
+                            <button id="btn-photo-mode2" type="button" aria-label="Photo mode"></button>
+                            <button id="btn-play-pause2" type="button" class="mini" aria-label="Play pause"></button>
+                        </div>
+                    </div>
+
+                    <div class="console-module console-center">
+                        <div class="console-readout-grid">
+                            <div class="console-readout">
+                                <span class="k">System Log</span>
+                                <span id="hud-console-altitude" class="v">CLEAR</span>
+                            </div>
+                            <div class="console-readout">
+                                <span class="k">Comm Channel</span>
+                                <span id="hud-console-fuel" class="v">14.2 GHZ</span>
+                            </div>
+                            <div class="console-readout">
+                                <span class="k">Rad</span>
+                                <span id="hud-console-shields" class="v">0.02 MSV</span>
+                            </div>
+                        </div>
+
+                        <div class="indicator-strip">
+                            <span class="console-indicator active"></span>
+                            <span class="console-indicator active"></span>
+                            <span class="console-indicator active"></span>
+                            <span class="console-indicator active"></span>
+                            <span class="console-indicator"></span>
+                            <span class="console-indicator"></span>
+                        </div>
+
+                        <div class="console-subreadout">
+                            <div class="console-row"><span class="k">Target</span><span id="hud-console-target" class="v">--</span></div>
+                            <div class="console-row"><span class="k">Eta</span><span id="hud-console-eta" class="v">--</span></div>
+                            <div class="console-row"><span class="k">Health</span><span id="hud-console-health" class="v">NOMINAL</span></div>
+                        </div>
+
+                        <div class="console-toolbar">
+                            <button id="btn-reset-camera" type="button" class="console-btn" title="Reset Camera">R</button>
+                            <button id="btn-toggle-orbits" type="button" class="console-btn" title="Toggle Orbits">O</button>
+                            <button id="btn-toggle-labels" type="button" class="console-btn" title="Toggle Labels">L</button>
+                            <button id="btn-toggle-asteroids" type="button" class="console-btn" title="Toggle Asteroids">A</button>
+                            <button id="btn-screenshot" type="button" class="console-btn" title="Screenshot">S</button>
+                            <button id="btn-share-scene" type="button" class="console-btn" title="Share Scene">URL</button>
+                            <button id="btn-photo-mode" type="button" class="console-btn" title="Photo Mode">P</button>
+                            <button id="btn-play-pause" type="button" class="console-btn active" title="Play Pause">
+                                <svg id="icon-pause" viewBox="0 0 24 24" fill="currentColor"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+                                <svg id="icon-play" viewBox="0 0 24 24" fill="currentColor" class="is-hidden"><path d="M8 5v14l11-7z"/></svg>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="console-module console-right">
+                        <div class="wave-wrap">
+                            <canvas id="console-waveform"></canvas>
+                        </div>
+                        <div class="radar-wrap">
+                            <canvas id="console-radar"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="quick-actions" class="bridge-panel">
+            <button id="btn-command-palette" class="quick-btn" title="Command Palette">/</button>
+        </div>
+    </div>
+
+    <!-- Control Panel (Right Sidebar) -->
+    <aside id="control-panel" class="collapsed">
+        <div class="panel-header">
+            <h2>Parameters</h2>
+            <div class="panel-header-actions">
+                <button id="ci-param-undo" class="ci-btn ci-btn--sm ci-btn--ghost" title="Undo" disabled>&#x21A9;</button>
+                <button id="ci-param-redo" class="ci-btn ci-btn--sm ci-btn--ghost" title="Redo" disabled>&#x21AA;</button>
+                <button id="panel-close" class="panel-close" aria-label="Close">&times;</button>
+            </div>
+        </div>
+
+        <div class="panel-content">
+            <section class="control-section">
+                <h3>Time Control</h3>
+                <div class="control-group">
+                    <label for="speed-slider">Simulation Speed</label>
+                    <input type="range" id="speed-slider" min="0.01" max="50" step="0.01" value="4">
+                    <span id="speed-value" class="slider-value">4.0 d/s</span>
+                </div>
+                <div class="preset-buttons">
+                    <button class="preset-btn" data-speed="0.01">0.01 d/s</button>
+                    <button class="preset-btn active" data-speed="4">4 d/s</button>
+                    <button class="preset-btn" data-speed="0.1">0.1 d/s</button>
+                    <button class="preset-btn" data-speed="0.5">0.5 d/s</button>
+                    <button class="preset-btn" data-speed="1">1 d/s</button>
+                    <button class="preset-btn" data-speed="5">5 d/s</button>
+                    <button class="preset-btn" data-speed="20">20 d/s</button>
+                </div>
+                <div class="time-jump-buttons">
+                    <button class="jump-btn" data-jump="-86400">-1 Day</button>
+                    <button class="jump-btn" data-jump="86400">+1 Day</button>
+                    <button class="jump-btn" data-jump="2629800">+1 Month</button>
+                    <button class="jump-btn" data-jump="31557600">+1 Year</button>
+                </div>
+                <div class="control-group">
+                    <label for="reverse-time">Reverse Time</label>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="reverse-time">
+                    </label>
+                </div>
+            </section>
+
+            <section class="control-section">
+                <h3>Camera</h3>
+                <div class="control-group">
+                    <label for="auto-rotate">Auto Rotate</label>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="auto-rotate">
+                    </label>
+                </div>
+                <div class="control-group">
+                    <label for="camera-target">Follow Target</label>
+                    <select id="camera-target">
+                        <option value="free">Free Camera</option>
+                        <option value="sun">Sun</option>
+                        <option value="mercury">Mercury</option>
+                        <option value="venus">Venus</option>
+                        <option value="earth">Earth</option>
+                        <option value="moon">Moon</option>
+                        <option value="mars">Mars</option>
+                        <option value="ceres">Ceres</option>
+                        <option value="jupiter">Jupiter</option>
+                        <option value="saturn">Saturn</option>
+                        <option value="uranus">Uranus</option>
+                        <option value="neptune">Neptune</option>
+                        <option value="pluto">Pluto</option>
+                        <option value="haumea">Haumea</option>
+                        <option value="makemake">Makemake</option>
+                        <option value="eris">Eris</option>
+                    </select>
+                </div>
+            </section>
+
+            <section class="control-section">
+                <h3>Visibility</h3>
+                <div class="control-group"><label for="show-orbits">Orbits</label><label class="toggle-switch"><input type="checkbox" id="show-orbits" checked></label></div>
+                <div class="control-group"><label for="show-labels">Labels</label><label class="toggle-switch"><input type="checkbox" id="show-labels" checked></label></div>
+                <div class="control-group"><label for="show-moons">All Moons</label><label class="toggle-switch"><input type="checkbox" id="show-moons" checked></label></div>
+                <div class="control-group"><label for="show-moon-labels">Major Moon Names</label><label class="toggle-switch"><input type="checkbox" id="show-moon-labels"></label></div>
+                <div class="control-group"><label for="show-minor-moon-labels">Minor Moon Names</label><label class="toggle-switch"><input type="checkbox" id="show-minor-moon-labels"></label></div>
+                <div class="control-group"><label for="show-asteroids">Asteroids</label><label class="toggle-switch"><input type="checkbox" id="show-asteroids" checked></label></div>
+                <div class="control-group"><label for="show-kuiper">Kuiper Belt</label><label class="toggle-switch"><input type="checkbox" id="show-kuiper" checked></label></div>
+                <div class="control-group"><label for="show-stars">Stars</label><label class="toggle-switch"><input type="checkbox" id="show-stars" checked></label></div>
+                <div class="control-group"><label for="show-galaxy">Galaxy</label><label class="toggle-switch"><input type="checkbox" id="show-galaxy" checked></label></div>
+                <div class="control-group"><label for="show-nebulae">Nebulae</label><label class="toggle-switch"><input type="checkbox" id="show-nebulae" checked></label></div>
+            </section>
+
+            <section class="control-section">
+                <h3>Lighting</h3>
+                <div class="control-group">
+                    <label for="ambient-light">Ambient Light</label>
+                    <input type="range" id="ambient-light" min="0" max="2" step="0.1" value="1.6">
+                    <span id="ambient-value" class="slider-value">1.6</span>
+                </div>
+                <div class="control-group">
+                    <label for="corona-intensity">Corona Intensity</label>
+                    <input type="range" id="corona-intensity" min="0" max="2" step="0.1" value="1.0">
+                    <span id="corona-value" class="slider-value">1.0</span>
+                </div>
+                <div class="control-group">
+                    <label for="sun-light">Sun Light</label>
+                    <input type="range" id="sun-light" min="0" max="4" step="0.1" value="1.8">
+                    <span id="light-value" class="slider-value">1.8</span>
+                </div>
+                <div class="control-group">
+                    <label for="atmosphere-intensity">Atmosphere</label>
+                    <input type="range" id="atmosphere-intensity" min="0" max="2" step="0.1" value="1.0">
+                    <span id="atmo-value" class="slider-value">1.0</span>
+                </div>
+            </section>
+
+            <section class="control-section">
+                <h3>Scale</h3>
+                <div class="control-group">
+                    <label for="planet-scale">Planet Size</label>
+                    <input type="range" id="planet-scale" min="0.5" max="2.5" step="0.01" value="1">
+                    <span id="planet-scale-value" class="slider-value">1.00x</span>
+                </div>
+                <div class="control-group">
+                    <label for="orbit-scale">Orbit Size</label>
+                    <input type="range" id="orbit-scale" min="0.5" max="2.5" step="0.01" value="1">
+                    <span id="orbit-scale-value" class="slider-value">1.00x</span>
+                </div>
+            </section>
+
+            <section class="control-section">
+                <h3>Adaptive Quality</h3>
+                <div class="control-group">
+                    <label for="adaptive-quality">Adaptive Scale</label>
+                    <label class="toggle-switch"><input type="checkbox" id="adaptive-quality" checked></label>
+                </div>
+                <span class="status-chip">Render Scale <strong id="quality-scale">100%</strong></span>
+            </section>
+
+            <section class="control-section">
+                <h3>Diagnostics</h3>
+                <div class="ci-diagnostics-grid">
+                    <div class="ci-stat-card">
+                        <div class="ci-stat-card__label">FPS</div>
+                        <div class="ci-stat-card__value" id="ci-diag-fps2">60</div>
+                    </div>
+                    <div class="ci-stat-card">
+                        <div class="ci-stat-card__label">Frame Time</div>
+                        <div class="ci-stat-card__value" id="ci-diag-frametime2">16.7ms</div>
+                    </div>
+                    <div class="ci-stat-card">
+                        <div class="ci-stat-card__label">Render Scale</div>
+                        <div class="ci-stat-card__value" id="ci-diag-scale2">100%</div>
+                    </div>
+                    <div class="ci-stat-card">
+                        <div class="ci-stat-card__label">Scene Objects</div>
+                        <div class="ci-stat-card__value" id="ci-diag-objects2">0</div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="control-section">
+                <h3>Missions</h3>
+                <div id="mission-progress" class="status-chip">0 / 0 complete</div>
+                <ul id="mission-list" class="mission-list"></ul>
+                <div class="action-buttons section-actions">
+                    <button id="btn-reset-missions" class="action-btn">Reset Missions</button>
+                </div>
+            </section>
+
+            <section class="control-section">
+                <h3>Presets</h3>
+                <div class="control-group">
+                    <label for="preset-name-input">Preset Name</label>
+                    <input type="text" id="preset-name-input" maxlength="32" placeholder="Profile name">
+                </div>
+                <div class="control-group">
+                    <label for="saved-preset-select">Saved Presets</label>
+                    <select id="saved-preset-select"><option value="">No saved presets</option></select>
+                </div>
+                <div class="action-buttons">
+                    <button id="btn-save-preset" class="action-btn">Save</button>
+                    <button id="btn-load-preset" class="action-btn">Load</button>
+                    <button id="btn-delete-preset" class="action-btn">Delete</button>
+                </div>
+            </section>
+
+            <section class="control-section">
+                <h3>Guided Tour</h3>
+                <div id="tour-status" class="status-chip">Idle</div>
+                <div class="action-buttons section-actions">
+                    <button id="btn-tour-start" class="action-btn">Start Tour</button>
+                    <button id="btn-tour-stop" class="action-btn">Stop Tour</button>
+                </div>
+            </section>
+
+            <section class="control-section">
+                <h3>Shader Inspector</h3>
+                <div class="ci-shader-info-grid">
+                    <div class="ci-shader-info-row">
+                        <span class="ci-label">Active Shader</span>
+                        <span class="ci-readout" id="ci-shader-name">--</span>
+                    </div>
+                    <div class="ci-shader-info-row">
+                        <span class="ci-label">Shader Mode</span>
+                        <span class="ci-readout" id="ci-shader-mode">Full</span>
+                    </div>
+                    <div class="ci-shader-info-row">
+                        <span class="ci-label">Uniforms</span>
+                        <span class="ci-readout" id="ci-shader-uniforms">--</span>
+                    </div>
+                </div>
+            </section>
+        </div>
+    </aside>
+
+    <!-- Planet Inspector -->
+    <aside id="info-panel" class="bridge-panel hidden">
+        <div class="info-header">
+            <div class="planet-summary">
+                <div id="planet-avatar" class="planet-avatar" aria-hidden="true"></div>
+                <div class="planet-title">
+                    <h2 id="planet-name">Planet</h2>
+                    <span id="planet-type" class="planet-type">Type</span>
+                </div>
+            </div>
+            <button id="close-panel" class="close-btn" aria-label="Close">&times;</button>
+        </div>
+
+        <div class="info-content">
+            <div class="stats-grid">
+                <div class="stat-card"><span class="stat-label">Distance</span><span id="planet-distance" class="stat-value">-</span></div>
+                <div class="stat-card"><span class="stat-label">Orbital Period</span><span id="planet-period" class="stat-value">-</span></div>
+                <div class="stat-card"><span class="stat-label">Temperature</span><span id="planet-temp" class="stat-value">-</span></div>
+                <div class="stat-card"><span class="stat-label">Gravity</span><span id="planet-gravity" class="stat-value">-</span></div>
+                <div class="stat-card"><span class="stat-label">Moons</span><span id="planet-moons" class="stat-value">-</span></div>
+                <div class="stat-card"><span class="stat-label">Diameter</span><span id="planet-diameter" class="stat-value">-</span></div>
+            </div>
+
+            <section class="composition-section">
+                <h4>Composition</h4>
+                <div id="composition-bars" class="composition-bars"></div>
+            </section>
+
+            <section class="fact-section">
+                <h4>Did You Know?</h4>
+                <p id="planet-fact" class="fact-text">Select a planet to inspect.</p>
+            </section>
+
+            <div class="action-buttons">
+                <button id="btn-focus-planet" class="action-btn">Focus</button>
+                <button id="btn-follow-planet" class="action-btn">Follow</button>
+            </div>
+            <div class="action-buttons action-buttons-surface">
+                <button id="btn-sun-surface" class="action-btn">Sun Surface</button>
+                <button id="btn-moon-surface" class="action-btn">Moon Surface</button>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Compare Panel -->
+    <section id="compare-panel" class="bridge-panel compare-panel hidden">
+        <div class="compare-header">
+            <h3>Planet Compare</h3>
+            <div class="compare-actions">
+                <button id="compare-swap" class="mini-btn">Swap</button>
+                <button id="compare-close" class="compare-close" aria-label="Close">&times;</button>
+            </div>
+        </div>
+        <div class="compare-body">
+            <div class="quick-grid">
+                <select id="compare-left" aria-label="Compare left planet" title="Compare left planet"></select>
+                <select id="compare-right" aria-label="Compare right planet" title="Compare right planet"></select>
+            </div>
+            <div id="compare-content" class="compare-content"></div>
+        </div>
+    </section>
+
+    <!-- Command Palette -->
+    <section id="command-palette" class="command-palette hidden">
+        <div class="command-inner">
+            <input id="command-input" class="command-input" type="text" placeholder="Type command...">
+            <div class="command-hints">
+                <div class="command-item"><strong>focus &lt;planet&gt;</strong><br>Focus camera on object.</div>
+                <div class="command-item"><strong>follow &lt;planet&gt;</strong><br>Follow planet in orbit.</div>
+                <div class="command-item"><strong>jump &lt;1d|1m|1y&gt;</strong><br>Jump simulation time.</div>
+                <div class="command-item"><strong>tour start|stop</strong><br>Control guided tour.</div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Shortcuts Help -->
+    <section id="shortcuts-help" class="bridge-panel shortcuts-help hidden">
+        <h3>Shortcuts</h3>
+        <div class="shortcut-grid">
+            <div>Space: Play/Pause</div>
+            <div>R: Reset Camera</div>
+            <div>O: Toggle Orbits</div>
+            <div>L: Toggle Labels</div>
+            <div>A: Toggle Asteroids</div>
+            <div>P: Photo Mode</div>
+            <div>C: Compare</div>
+            <div>T: Guided Tour</div>
+            <div>0-8: Focus Bodies</div>
+            <div>/: Command Palette</div>
+        </div>
+    </section>
+
+    <!-- Toasts -->
+    <div id="toast-stack" class="toast-stack"></div>
+
+    <!-- Loading -->
+    <div id="loading">
+        <div class="loading-card">
+            <h4>Initializing Simulation</h4>
+            <p id="loading-status" class="loading-status">Loading textures...</p>
+            <div class="loading-track"><div id="loading-progress"></div></div>
+        </div>
+    </div>
+
+    <!-- Surface Modals -->
+    <div id="sun-surface-modal" class="surface-modal hidden">
+        <div class="surface-inner">
+            <button id="sun-surface-close" class="surface-close" aria-label="Close">&times;</button>
+            <div id="sun-surface-canvas" class="surface-canvas"></div>
+        </div>
+    </div>
+
+    <div id="moon-surface-modal" class="surface-modal hidden">
+        <div class="surface-inner">
+            <button id="moon-surface-close" class="surface-close" aria-label="Close">&times;</button>
+            <div id="moon-surface-canvas" class="surface-canvas"></div>
+        </div>
+    </div>
+
+    <!-- Shader Modal -->
+    <div id="shader-modal" class="shader-modal hidden">
+        <div class="shader-modal-inner">
+            <div class="shader-modal-header">
+                <h3 id="shader-modal-title">Planet Shader</h3>
+                <div class="shader-modal-actions">
+                    <button id="shader-enhanced" class="shader-btn">Enhanced</button>
+                    <button id="shader-fullscreen" class="shader-btn">Fullscreen</button>
+                    <button id="shader-modal-close" class="shader-close-btn" aria-label="Close">&times;</button>
+                </div>
+            </div>
+            <iframe id="shader-iframe" title="Shader View"></iframe>
+        </div>
+    </div>
+
+    <script async src="https://unpkg.com/es-module-shims@1.10.0/dist/es-module-shims.js"></script>
+    <script type="importmap-shim">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.161.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.161.0/examples/jsm/"
+            }
+        }
+    </script>
+    <script type="module-shim" src="main.js?v=20260215-cache27"></script>
+</body>
+</html>

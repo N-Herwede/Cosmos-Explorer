@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Procedural Pluto - Noah Herwede</title>
+    <style>
+        body, html { margin: 0; padding: 0; overflow: hidden; background: #000; }
+        canvas { display: block; width: 100vw; height: 100vh; }
+    </style>
+</head>
+<body>
+    <canvas id="glcanvas"></canvas>
+
+    <script id="vs" type="x-shader/x-vertex">
+        attribute vec2 position;
+        void main() {
+            gl_Position = vec4(position, 0.0, 1.0);
+        }
+    </script>
+
+    <script id="fs" type="x-shader/x-fragment">
+        precision highp float;
+
+        uniform vec3 iResolution;
+        uniform float iTime;
+
+        // =======================================================================================//
+        // PROCEDURAL PLUTO - Noah Herwede
+        // Features: Heart-shaped Tombaugh Regio, Cthulhu Macula, New Horizons Accurate
+        // =======================================================================================//
+
+        #define PLANET_POSITION vec3(0.0, 0.0, 0.0)
+        #define PLANET_RADIUS 2.0
+        #define ROT_SPEED 0.06
+
+        #define COL_DEEP_SHADOW     vec3(0.08, 0.04, 0.03)
+        #define COL_DARK_RED        vec3(0.35, 0.12, 0.08)
+        #define COL_RUST_RED        vec3(0.52, 0.22, 0.14)
+        #define COL_RUST_ORANGE     vec3(0.62, 0.32, 0.20)
+        #define COL_TAN_DARK        vec3(0.70, 0.52, 0.40)
+        #define COL_TAN             vec3(0.78, 0.65, 0.52)
+        #define COL_CREAM           vec3(0.88, 0.82, 0.75)
+        #define COL_PALE            vec3(0.92, 0.88, 0.84)
+        #define COL_ICE_CREAM       vec3(0.95, 0.92, 0.88)
+        #define COL_ICE_WHITE       vec3(0.98, 0.96, 0.94)
+        #define COL_YELLOW          vec3(0.90, 0.82, 0.60)
+        #define COL_BLUE_GREY       vec3(0.72, 0.74, 0.80)
+        #define COL_ATMOSPHERE      vec3(0.55, 0.65, 0.82)
+
+        #define SUN_DIR normalize(vec3(0.85, 0.35, 0.55))
+        #define SUN_COLOR vec3(1.0, 0.97, 0.92) * 2.5
+        #define AMBIENT vec3(0.06, 0.055, 0.05)
+
+        #define CAM_POS vec3(0.0, 0.0, 5.5)
+
+        struct Ray { vec3 o, d; };
+        struct Hit { float t; vec3 n; vec3 col; };
+
+        float hash1(float n) { return fract(sin(n) * 43758.5453123); }
+        float hash2(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+        float hash3(vec3 p) { return fract(sin(dot(p, vec3(127.1, 311.7, 74.7))) * 43758.5453); }
+
+        float noise(vec3 p) {
+            vec3 i = floor(p);
+            vec3 f = fract(p);
+            f = f * f * f * (f * (f * 6.0 - 15.0) + 10.0);
+
+            float n = i.x + i.y * 157.0 + i.z * 113.0;
+            return mix(mix(mix(hash1(n + 0.0), hash1(n + 1.0), f.x),
+                           mix(hash1(n + 157.0), hash1(n + 158.0), f.x), f.y),
+                       mix(mix(hash1(n + 113.0), hash1(n + 114.0), f.x),
+                           mix(hash1(n + 270.0), hash1(n + 271.0), f.x), f.y), f.z);
+        }
+
+        float fbm(vec3 p, int oct) {
+            float v = 0.0, a = 0.5, f = 1.0;
+            for(int i = 0; i < 10; i++) {
+                if(i >= oct) break;
+                v += a * noise(p * f);
+                f *= 2.17;
+                a *= 0.48;
+            }
+            return v;
+        }
+
+        float ridged(vec3 p, int oct) {
+            float v = 0.0, a = 0.5, f = 1.0;
+            for(int i = 0; i < 8; i++) {
+                if(i >= oct) break;
+                float n = 1.0 - abs(noise(p * f) * 2.0 - 1.0);
+                n = n * n;
+                v += a * n;
+                f *= 2.1;
+                a *= 0.5;
+            }
+            return v;
+        }
+
+        float voronoi(vec3 p) {
+            vec3 i = floor(p);
+            vec3 f = fract(p);
+            float minDist = 1.0;
+            for(int x = -1; x <= 1; x++) {
+                for(int y = -1; y <= 1; y++) {
+                    for(int z = -1; z <= 1; z++) {
+                        vec3 neighbor = vec3(float(x), float(y), float(z));
+                        vec3 cellPoint = neighbor + hash3(i + neighbor) - f;
+                        minDist = min(minDist, dot(cellPoint, cellPoint));
+                    }
+                }
+            }
+            return sqrt(minDist);
+        }
+
+        vec2 toSpherical(vec3 p) {
+            p = normalize(p);
+            return vec2(atan(p.z, p.x), asin(p.y));
+        }
+
+        float heartMask(vec3 p) {
+            vec2 sp = toSpherical(p);
+            float lon = sp.x;
+            float lat = sp.y;
+
+            vec2 uv = vec2(lon + 0.3, lat);
+
+            float left = length((uv - vec2(-0.38, 0.05)) * vec2(1.0, 1.1)) - 0.42;
+            float right = length((uv - vec2(0.12, 0.08)) * vec2(1.0, 1.05)) - 0.38;
+
+            float heart = min(left, right);
+            heart += fbm(p * 8.0, 2) * 0.06;
+
+            return smoothstep(0.05, -0.08, heart);
+        }
+
+        float cthulhuMask(vec3 p) {
+            vec2 sp = toSpherical(p);
+            float lon = sp.x;
+            float lat = sp.y;
+
+            vec2 center = vec2(1.8, -0.4);
+            vec2 uv = vec2(lon, lat);
+
+            float warp = fbm(p * 2.5, 4) * 0.5;
+            float dist = length((uv - center) * vec2(0.55, 0.8));
+
+            float mask = smoothstep(1.1 + warp, 0.2, dist);
+
+            float tendril1 = smoothstep(0.35, 0.0, abs(lat + 0.15)) * smoothstep(0.3, 1.6, lon);
+            float tendril2 = smoothstep(0.28, 0.0, abs(lat + 0.35)) * smoothstep(0.6, 1.9, lon);
+
+            tendril1 *= smoothstep(0.4, 0.65, fbm(p * 5.0, 3));
+            tendril2 *= smoothstep(0.35, 0.6, fbm(p * 4.0 + vec3(3.0), 3));
+
+            mask = max(mask, tendril1 * 0.85);
+            mask = max(mask, tendril2 * 0.7);
+
+            float heartDist = 1.0 - heartMask(p);
+            mask *= heartDist;
+
+            return clamp(mask, 0.0, 1.0);
+        }
+
+        float darkPatches(vec3 p) {
+            vec2 sp = toSpherical(p);
+            float lon = sp.x;
+            float lat = sp.y;
+
+            float patches = 0.0;
+
+            float spot1 = smoothstep(0.35, 0.0, length(vec2(lon + 0.5, lat - 0.45) * vec2(1.2, 1.0)));
+            float spot2 = smoothstep(0.25, 0.0, length(vec2(lon - 0.8, lat - 0.3) * vec2(1.0, 1.3)));
+
+            patches += spot1 * 0.5 * smoothstep(0.5, 0.7, fbm(p * 6.0, 3));
+            patches += spot2 * 0.4 * smoothstep(0.45, 0.65, fbm(p * 5.0, 3));
+
+            return patches;
+        }
+
+        float getHeight(vec3 p) {
+            float h = 0.0;
+            h += fbm(p * 1.0, 4) * 0.4;
+            h += ridged(p * 2.5, 5) * 0.25;
+            h += fbm(p * 8.0, 5) * 0.12;
+            h += fbm(p * 20.0, 4) * 0.05;
+
+            float heart = heartMask(p);
+            float smoothIce = 0.5 + voronoi(p * 15.0) * 0.08;
+            h = mix(h, smoothIce, heart * 0.9);
+
+            return h;
+        }
+
+        vec3 getColor(vec3 p) {
+            vec2 sp = toSpherical(p);
+            float lon = sp.x;
+            float lat = sp.y;
+
+            float heart = heartMask(p);
+            float cthulhu = cthulhuMask(p);
+            float darkPatch = darkPatches(p);
+
+            float h = getHeight(p);
+            float hNorm = smoothstep(0.2, 0.8, h);
+
+            float n1 = fbm(p * 3.0, 4);
+            float n2 = fbm(p * 7.0, 4);
+            float n3 = fbm(p * 15.0, 3);
+            float n4 = fbm(p * 30.0, 3);
+
+            vec3 col = mix(COL_TAN_DARK, COL_TAN, hNorm);
+            col = mix(col, COL_CREAM, smoothstep(0.5, 0.85, hNorm));
+            col = mix(col, COL_PALE, smoothstep(0.75, 0.95, hNorm) * 0.6);
+
+            col = mix(col, COL_TAN_DARK, n2 * 0.25 * (1.0 - heart));
+            col = mix(col, COL_CREAM, n1 * 0.2);
+
+            float yellowMask = smoothstep(-0.1, 0.45, lat) * n1 * smoothstep(0.4, 0.6, n2);
+            col = mix(col, COL_YELLOW, yellowMask * 0.5 * (1.0 - heart) * (1.0 - cthulhu));
+
+            float blueMask = smoothstep(0.55, 0.75, n1) * smoothstep(0.3, 0.5, hNorm);
+            col = mix(col, COL_BLUE_GREY, blueMask * 0.25 * (1.0 - cthulhu));
+
+            vec3 cthulhuCol = mix(COL_RUST_RED, COL_DARK_RED, n2 * 0.6 + n3 * 0.3);
+            cthulhuCol = mix(cthulhuCol, COL_RUST_ORANGE, (1.0 - n1) * 0.3);
+            cthulhuCol = mix(cthulhuCol, COL_DEEP_SHADOW, smoothstep(0.6, 0.9, cthulhu) * n3 * 0.5);
+
+            float cthulhuEdge = smoothstep(0.0, 0.15, cthulhu);
+            col = mix(col, cthulhuCol, cthulhuEdge);
+
+            vec3 patchCol = mix(COL_RUST_ORANGE, COL_TAN_DARK, n2);
+            col = mix(col, patchCol, darkPatch * (1.0 - heart));
+
+            vec3 iceCol = mix(COL_ICE_CREAM, COL_ICE_WHITE, smoothstep(0.3, 0.8, heart));
+            float cells = voronoi(p * 18.0);
+            iceCol -= cells * 0.04;
+            iceCol = mix(iceCol, COL_CREAM, n3 * 0.08);
+
+            float heartEdge = smoothstep(0.0, 0.25, heart) * (1.0 - smoothstep(0.25, 0.6, heart));
+            col = mix(col, COL_PALE, heartEdge * 0.5);
+            col = mix(col, iceCol, smoothstep(0.15, 0.5, heart));
+
+            col *= 0.92 + n4 * 0.16;
+
+            return clamp(col, 0.0, 1.0);
+        }
+
+        vec3 baseColor(vec3 n) {
+            vec3 localPos = n * PLANET_RADIUS;
+            vec3 surfPos = rotY(iTime * ROT_SPEED) * localPos;
+            return getColor(surfPos);
+        }
+
+        mat3 rotY(float a) {
+            float c = cos(a), s = sin(a);
+            return mat3(c,0,s, 0,1,0, -s,0,c);
+        }
+
+        float raySphere(vec3 ro, vec3 rd, vec3 ce, float ra) {
+            vec3 oc = ro - ce;
+            float b = dot(oc, rd);
+            float c = dot(oc, oc) - ra * ra;
+            float h = b * b - c;
+            if(h < 0.0) return -1.0;
+            return -b - sqrt(h);
+        }
+
+        Hit trace(vec3 ro, vec3 rd) {
+            float t = raySphere(ro, rd, PLANET_POSITION, PLANET_RADIUS);
+            if(t < 0.0) return Hit(-1.0, vec3(0), vec3(0));
+
+            vec3 pos = ro + rd * t;
+            vec3 localPos = pos - PLANET_POSITION;
+
+            vec3 surfPos = rotY(iTime * ROT_SPEED) * localPos;
+
+            vec3 col = getColor(surfPos);
+
+            vec3 geoN = normalize(localPos);
+            float eps = 0.005;
+            mat3 rot = rotY(iTime * ROT_SPEED);
+            float hC = getHeight(surfPos);
+            float hX = getHeight(rot * (localPos + vec3(eps, 0, 0)));
+            float hY = getHeight(rot * (localPos + vec3(0, eps, 0)));
+            float hZ = getHeight(rot * (localPos + vec3(0, 0, eps)));
+
+            vec3 grad = vec3(hX - hC, hY - hC, hZ - hC) / eps;
+            grad -= geoN * dot(grad, geoN);
+            vec3 n = normalize(geoN - grad * 0.12);
+
+            return Hit(t, n, col);
+        }
+
+        vec3 render(vec3 ro, vec3 rd) {
+            Hit hit = trace(ro, rd);
+
+            if(hit.t > 0.0) {
+                vec3 pos = ro + rd * hit.t;
+
+                float NdotL = max(dot(hit.n, SUN_DIR), 0.0);
+
+                vec3 toSun = normalize(pos - PLANET_POSITION);
+                float term = smoothstep(-0.12, 0.18, dot(toSun, SUN_DIR));
+
+                vec3 H = normalize(SUN_DIR - rd);
+                float spec = pow(max(dot(hit.n, H), 0.0), 32.0);
+                float specMask = smoothstep(0.8, 0.95, (hit.col.r + hit.col.g + hit.col.b) / 3.0);
+
+                float fresnel = pow(1.0 - max(dot(hit.n, -rd), 0.0), 4.5);
+
+                vec3 col = hit.col * (AMBIENT + SUN_COLOR * NdotL * term);
+                col += vec3(1.0, 0.98, 0.95) * spec * specMask * 0.15 * term;
+                col += COL_ATMOSPHERE * fresnel * 0.12;
+
+                return col;
+            }
+
+            float distToCenter = length(cross(rd, PLANET_POSITION - ro));
+            float distFromSurf = distToCenter - PLANET_RADIUS;
+            float glow = exp(-distFromSurf * 10.0);
+            return COL_ATMOSPHERE * glow * 0.4;
+        }
+
+        void mainImage(out vec4 fragColor, in vec2 fragCoord) {
+            vec2 uv = (fragCoord - 0.5 * iResolution.xy) / iResolution.y;
+
+            vec3 ro = CAM_POS;
+            vec3 rd = normalize(vec3(uv, -1.0));
+
+            vec3 col = render(ro, rd);
+
+            col = col / (1.0 + col);
+            col = pow(col, vec3(0.4545));
+
+            col *= 1.0 - 0.3 * dot(uv, uv);
+
+            fragColor = vec4(col, 1.0);
+        }
+
+        void main() {
+            mainImage(gl_FragColor, gl_FragCoord.xy);
+        }
+    </script>
+
+    <script>
+        const canvas = document.getElementById('glcanvas');
+        const gl = canvas.getContext('webgl');
+
+        if (!gl) { alert('WebGL not supported'); }
+
+        function createShader(gl, type, source) {
+            const shader = gl.createShader(type);
+            gl.shaderSource(shader, source);
+            gl.compileShader(shader);
+            if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+                console.error(gl.getShaderInfoLog(shader));
+                gl.deleteShader(shader);
+                return null;
+            }
+            return shader;
+        }
+
+        const vsSource = document.getElementById('vs').text;
+        const fsSource = document.getElementById('fs').text;
+
+        const vertexShader = createShader(gl, gl.VERTEX_SHADER, vsSource);
+        const fragmentShader = createShader(gl, gl.FRAGMENT_SHADER, fsSource);
+
+        const program = gl.createProgram();
+        gl.attachShader(program, vertexShader);
+        gl.attachShader(program, fragmentShader);
+        gl.linkProgram(program);
+
+        if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+            console.error(gl.getProgramInfoLog(program));
+        }
+
+        const positionBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
+            -1, -1, 1, -1, -1, 1, -1, 1, 1, -1, 1, 1,
+        ]), gl.STATIC_DRAW);
+
+        const positionLocation = gl.getAttribLocation(program, "position");
+        gl.enableVertexAttribArray(positionLocation);
+        gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0);
+
+        gl.useProgram(program);
+
+        const timeLocation = gl.getUniformLocation(program, "iTime");
+        const resolutionLocation = gl.getUniformLocation(program, "iResolution");
+
+        function resize() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            gl.viewport(0, 0, canvas.width, canvas.height);
+            gl.uniform3f(resolutionLocation, canvas.width, canvas.height, 1.0);
+        }
+
+        window.addEventListener('resize', resize);
+        resize();
+
+        function render(time) {
+            gl.uniform1f(timeLocation, time * 0.001);
+            gl.drawArrays(gl.TRIANGLES, 0, 6);
+            requestAnimationFrame(render);
+        }
+
+        requestAnimationFrame(render);
+    </script>
+</body>
+</html>

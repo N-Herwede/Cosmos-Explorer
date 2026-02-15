@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>COSMOS LABORATORY | Enhanced Viewer</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/cosmos-design-system.css?v=20260215-cache4">
+    <link rel="stylesheet" href="css/cosmos-viewer.css?v=20260215-cache4">
+</head>
+<body>
+    <div class="spaceship-bg"><div class="corridor"></div></div>
+    <div class="bg-grid"></div>
+    <div class="neon-strip top"></div>
+    <div class="neon-strip bottom"></div>
+
+    <div class="loading-screen" id="loadingScreen">
+        <div class="loading-spinner"></div>
+        <div class="loading-text">INITIALIZING</div>
+        <div class="loading-shimmer"></div>
+    </div>
+
+    <div class="viewer-container">
+        <header class="top-bar">
+            <div class="logo">
+                <div class="logo-icon"></div>
+                <div class="logo-text"><span class="neon">COSMOS</span><span class="dark">.LABORATORY</span></div>
+            </div>
+            <div class="top-controls">
+                <button class="btn" id="btnScale"><svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14zM7 10h2v7H7zm4-3h2v10h-2zm4 6h2v4h-2z"/></svg>SCALE</button>
+                <button class="btn btn-custom-toggle" id="btnCustomPanel" type="button">CUSTOM LAB</button>
+                <button class="btn btn-icon" id="btnScreenshot" title="Screenshot (S)"><svg viewBox="0 0 24 24"><path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/></svg></button>
+                <button class="btn btn-icon" id="btnFullscreen" title="Fullscreen (F)"><svg viewBox="0 0 24 24"><path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg></button>
+                <button class="btn btn-back" id="btnBack">&larr; GALLERY</button>
+            </div>
+        </header>
+
+        <aside class="side-panel">
+            <div class="panel-section">
+                <h3 class="panel-title">CELESTIAL BODIES</h3>
+                <div class="planet-grid" id="planetGrid"></div>
+            </div>
+            <div class="panel-section">
+                <h3 class="panel-title">INFORMATION</h3>
+                <div class="info-card">
+                    <div class="info-header">
+                        <div class="info-icon" id="infoIcon"></div>
+                        <div class="info-title"><h2 id="infoName">Earth</h2><span id="infoType">Terrestrial Planet</span></div>
+                    </div>
+                    <div class="info-stats" id="infoStats"></div>
+                </div>
+            </div>
+            <div class="panel-section">
+                <h3 class="panel-title">DID YOU KNOW?</h3>
+                <div class="facts-container">
+                    <div class="fact-label">FACT</div>
+                    <p class="fact-text" id="factText">Loading...</p>
+                </div>
+            </div>
+            <div class="panel-section">
+                <h3 class="panel-title">SHADER PLAYGROUND</h3>
+                <div class="playground-card">
+                    <div class="playground-row">
+                        <label class="playground-label" for="fxExposure">Exposure</label>
+                        <input type="range" id="fxExposure" min="0.6" max="1.8" step="0.01" value="1.00">
+                        <span class="playground-value" id="fxExposureValue">1.00</span>
+                    </div>
+                    <div class="playground-row">
+                        <label class="playground-label" for="fxContrast">Contrast</label>
+                        <input type="range" id="fxContrast" min="0.6" max="1.8" step="0.01" value="1.00">
+                        <span class="playground-value" id="fxContrastValue">1.00</span>
+                    </div>
+                    <div class="playground-row">
+                        <label class="playground-label" for="fxSaturation">Saturate</label>
+                        <input type="range" id="fxSaturation" min="0.0" max="2.5" step="0.01" value="1.00">
+                        <span class="playground-value" id="fxSaturationValue">1.00</span>
+                    </div>
+                    <div class="playground-row">
+                        <label class="playground-label" for="fxHue">Hue</label>
+                        <input type="range" id="fxHue" min="-180" max="180" step="1" value="0">
+                        <span class="playground-value" id="fxHueValue">0</span>
+                    </div>
+                    <div class="playground-row">
+                        <label class="playground-label" for="fxBloom">Bloom</label>
+                        <input type="range" id="fxBloom" min="0" max="1.2" step="0.01" value="0.28">
+                        <span class="playground-value" id="fxBloomValue">0.28</span>
+                    </div>
+                    <div class="playground-row">
+                        <label class="playground-label" for="fxVignette">Vignette</label>
+                        <input type="range" id="fxVignette" min="0" max="1.0" step="0.01" value="0.25">
+                        <span class="playground-value" id="fxVignetteValue">0.25</span>
+                    </div>
+                    <div class="playground-row">
+                        <label class="playground-label" for="fxGrain">Grain</label>
+                        <input type="range" id="fxGrain" min="0" max="1.0" step="0.01" value="0.12">
+                        <span class="playground-value" id="fxGrainValue">0.12</span>
+                    </div>
+                    <div class="mini-action-row">
+                        <button class="mini-action-btn" id="btnFxReset" type="button">Reset</button>
+                        <button class="mini-action-btn" id="btnFxSave" type="button">Save FX</button>
+                        <button class="mini-action-btn" id="btnFxShare" type="button">Copy URL</button>
+                    </div>
+                </div>
+            </div>
+            <div class="panel-section">
+                <h3 class="panel-title">CUSTOM PLANET LAB</h3>
+                <div class="playground-card">
+                    <button class="mini-action-btn" id="btnCustomPanelOpenFromSidebar" type="button">Open Custom Lab Panel</button>
+                    <p class="custom-live-note">Live preview while editing, save when ready.</p>
+                </div>
+            </div>
+        </aside>
+
+        <main class="viewport" id="viewport">
+            <iframe class="shader-frame" id="shaderFrame" src="about:blank" title="Planet shader viewer"></iframe>
+            <div class="viewport-fx" id="viewportFx"></div>
+            <div class="status-indicator"><div class="status-dot" id="statusDot"></div><span id="statusText">PLAYING</span></div>
+            <div class="nav-hint">
+                <span><kbd>&larr;</kbd><kbd>&rarr;</kbd> Navigate</span>
+                <span><kbd>SPACE</kbd> Pause</span>
+                <span><kbd>F</kbd> Fullscreen</span>
+            </div>
+        </main>
+
+        <footer class="bottom-bar">
+            <div class="control-group">
+                <button class="btn btn-icon" id="btnPlayPause" title="Play/Pause (Space)">
+                    <svg viewBox="0 0 24 24" id="playPauseIcon"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+                </button>
+            </div>
+            <div class="control-group">
+                <span class="control-label">SPEED</span>
+                <input type="range" id="speedSlider" min="0" max="200" value="100" aria-label="Playback Speed">
+                <span class="speed-value" id="speedValue">1.0x</span>
+            </div>
+            <div class="control-group">
+                <span class="control-label">QUALITY</span>
+                <div class="quality-group">
+                    <button class="quality-btn" data-quality="low">LOW</button>
+                    <button class="quality-btn active" data-quality="medium">MED</button>
+                    <button class="quality-btn" data-quality="high">HIGH</button>
+                </div>
+            </div>
+        </footer>
+    </div>
+
+    <div class="custom-panel-backdrop" id="customPanelBackdrop" aria-hidden="true"></div>
+    <aside class="custom-panel" id="customPanel" aria-hidden="true">
+        <div class="custom-panel-header">
+            <h3 class="custom-panel-title">Custom Planet Lab</h3>
+            <button class="custom-panel-close" id="btnCustomPanelClose" type="button" aria-label="Close custom planet panel">&times;</button>
+        </div>
+        <div class="custom-panel-body">
+            <div class="custom-lab-card">
+                <div class="custom-grid full">
+                    <div class="custom-field">
+                        <label for="customName">Planet Name</label>
+                        <input id="customName" type="text" maxlength="22" value="My Planet">
+                    </div>
+                </div>
+                <div class="custom-grid">
+                    <div class="custom-field">
+                        <label for="customTemplate">Template</label>
+                        <select id="customTemplate">
+                            <option value="rocky">Rocky</option>
+                            <option value="desert">Desert</option>
+                            <option value="ocean">Oceanic</option>
+                            <option value="barren">Barren</option>
+                            <option value="gas">Gas Giant</option>
+                            <option value="ice">Ice World</option>
+                            <option value="lava">Lava World</option>
+                        </select>
+                    </div>
+                    <div class="custom-field">
+                        <label for="customSeed">Seed</label>
+                        <input id="customSeed" type="number" min="0" max="9999" value="1337">
+                    </div>
+                </div>
+                <div class="custom-grid">
+                    <div class="custom-field">
+                        <label for="customPrimary">Primary</label>
+                        <input id="customPrimary" type="color" value="#7f9dcb">
+                    </div>
+                    <div class="custom-field">
+                        <label for="customSecondary">Secondary</label>
+                        <input id="customSecondary" type="color" value="#3d5d8f">
+                    </div>
+                </div>
+                <div class="custom-grid">
+                    <div class="custom-field">
+                        <label for="customAtmosphere">Atmosphere</label>
+                        <input id="customAtmosphere" type="color" value="#8fd5ff">
+                    </div>
+                    <div class="custom-field">
+                        <label for="customRotation">Rotation</label>
+                        <input id="customRotation" type="range" min="0.05" max="3.2" step="0.01" value="0.45">
+                    </div>
+                </div>
+                <div class="custom-grid">
+                    <div class="custom-field">
+                        <label for="customBand">Banding</label>
+                        <input id="customBand" type="range" min="0.1" max="3.4" step="0.01" value="1.0">
+                    </div>
+                    <div class="custom-field">
+                        <label for="customStorm">Storms</label>
+                        <input id="customStorm" type="range" min="0" max="3.0" step="0.01" value="0.8">
+                    </div>
+                </div>
+                <div class="custom-grid">
+                    <div class="custom-field">
+                        <label for="customLand">Land</label>
+                        <input id="customLand" type="range" min="0" max="3.0" step="0.01" value="1.0">
+                    </div>
+                    <div class="custom-field">
+                        <label for="customRock">Rocky</label>
+                        <input id="customRock" type="range" min="0" max="3.4" step="0.01" value="1.0">
+                    </div>
+                </div>
+                <div class="custom-grid">
+                    <div class="custom-field">
+                        <label for="customCrater">Craters</label>
+                        <input id="customCrater" type="range" min="0" max="3.2" step="0.01" value="0.75">
+                    </div>
+                    <div class="custom-field">
+                        <label for="customCloud">Clouds</label>
+                        <input id="customCloud" type="range" min="0" max="3.2" step="0.01" value="0.7">
+                    </div>
+                </div>
+                <div class="custom-grid full">
+                    <div class="custom-field">
+                        <label for="customAtmoDensity">Atmo Density</label>
+                        <input id="customAtmoDensity" type="range" min="0" max="3.0" step="0.01" value="1.0">
+                    </div>
+                </div>
+                <div class="custom-grid">
+                    <div class="custom-field">
+                        <label for="customPlanetScale">Planet Zoom</label>
+                        <input id="customPlanetScale" type="range" min="0.65" max="1.45" step="0.01" value="1.0">
+                    </div>
+                    <div class="custom-field">
+                        <label for="customHalo">Halo</label>
+                        <input id="customHalo" type="range" min="0" max="1.6" step="0.01" value="0.65">
+                    </div>
+                </div>
+                <div class="custom-grid">
+                    <div class="custom-field">
+                        <label for="customRelief">Relief</label>
+                        <input id="customRelief" type="range" min="0.3" max="2.8" step="0.01" value="1.0">
+                    </div>
+                    <div class="custom-field">
+                        <label for="customSpecular">Specular</label>
+                        <input id="customSpecular" type="range" min="0" max="1.8" step="0.01" value="0.45">
+                    </div>
+                </div>
+                <div class="mini-action-row">
+                    <button class="mini-action-btn" id="btnCreateCustom" type="button">Create + Save</button>
+                    <button class="mini-action-btn" id="btnDeleteCustom" type="button" disabled>Delete Selected</button>
+                    <button class="mini-action-btn" id="btnCustomRandom" type="button">Randomize</button>
+                </div>
+                <p class="custom-status" id="customStatus">No custom planets selected.</p>
+            </div>
+        </div>
+    </aside>
+
+    <div class="modal-overlay" id="scaleModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h2 class="modal-title">SCALE COMPARISON</h2>
+                <button class="modal-close" id="closeScaleModal">&times;</button>
+            </div>
+            <div class="scale-container" id="scaleContainer"></div>
+            <div class="distance-container">
+                <div class="distance-title">DISTANCE FROM THE SUN</div>
+                <div class="distance-line" id="distanceLine"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/planetData.js?v=20260215-cache4"></script>
+    <script src="js/viewer.js?v=20260215-cache4"></script>
+</body>
+</html>
