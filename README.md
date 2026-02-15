@@ -15,7 +15,7 @@ GitHub Pages URL:
 
 ## Vignette
 
-![Cosmos Vignette](assets/Screenshot/Solar.png)
+![Cosmos Vignette](assets/Screenshot/Miniature.png)
 
 ## Website Sections
 
@@ -37,13 +37,11 @@ Immersive planet cards with shader previews and planetary data panels.
 
 Interactive solar system simulation with time controls, camera controls, diagnostics, and action panel.
 
-![Simulation](assets/Screenshot/Miniature.png)
-
 ![Simulation Overview](assets/Screenshot/Solar.png)
 
 ### Enhanced Viewer (`viewer.html`)
 
-Focused planet shader viewer with additional controls and a dedicated inspection workflow.
+Focused planet shader viewer with additional controls and a dedicated inspection workflow and editor.
 
 ![Enhanced Viewer](assets/Screenshot/Advenced_Visual.png)
 
@@ -70,6 +68,7 @@ Focused planet shader viewer with additional controls and a dedicated inspection
 - CSS3
 - JavaScript (ES Modules)
 - Three.js (loaded by import map from CDN in simulation/viewer flows)
+- WebGL
 
 ## Requirements
 
